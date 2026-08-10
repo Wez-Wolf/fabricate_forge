@@ -11,13 +11,29 @@ var comp = {
                 name: '',
                 client_id: null,
                 customerName: '',
-                currency: 'USD',
+                currency: '',
                 dueDate: '',
             },
-            currencies: ['USD', 'EUR', 'GBP', 'ZAR'],
+            currencies: ['USD', 'EUR', 'GBP', 'ZAR', 'CAD', 'AUD'],
         };
     },
+    created() {
+        this.loadPrefs();
+    },
     methods: {
+        // Default the currency to the user's preference from Settings
+        async loadPrefs() {
+            try {
+                var res = await WEB.api('./api/user.php', {
+                    action: 'get_preferences',
+                    input: {}
+                });
+                var p = (res && res.data) || res || {};
+                if (p.defaultCurrency) this.form.currency = p.defaultCurrency;
+            } catch (e) {
+                this.form.currency = 'USD';
+            }
+        },
         // client-select emits the picked client object — store id + prefill name
         onClientPick(client) {
             if (client && client.id) {

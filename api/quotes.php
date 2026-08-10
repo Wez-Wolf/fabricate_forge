@@ -320,25 +320,55 @@ class quotes extends Base
                 . '<td>' . htmlspecialchars($e['type']) . '</td>'
                 . '<td>' . (float)($e['quantity'] ?? 1) . '</td>'
                 . '<td>' . number_format((float)($c['material'] ?? 0), 2) . '</td>'
-                . '<td>' . number_format((float)($c['processTotal'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['boilerHrs'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['weldHrs'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['machHrs'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['labor'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['consumables'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['services'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['ndt'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['lining'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['paint'] ?? 0), 2) . '</td>'
+                . '<td>' . number_format((float)($c['transport'] ?? 0), 2) . '</td>'
                 . '<td>' . number_format((float)($c['total'] ?? 0), 2) . '</td>'
                 . '</tr>';
         }
 
         $total = $loaded['total_cost'] ?? 0;
+        $totals = $loaded['totals'] ?? [];
+        $totalsRow = function ($col) use ($totals) {
+            return isset($totals[$col]) ? number_format((float)$totals[$col], 2) : '0.00';
+        };
         $html = '<!DOCTYPE html><html><head><meta charset="utf-8">'
             . '<title>' . htmlspecialchars($quote['name'] ?? 'Quote') . '</title>'
             . '<style>body{font-family:sans-serif;padding:2rem;color:#1e293b}'
             . 'h1{font-size:1.5rem;margin-bottom:.25rem}.meta{color:#64748b;font-size:.85rem;margin-bottom:1.5rem}'
-            . 'table{width:100%;border-collapse:collapse}th,td{padding:.5rem;border-bottom:1px solid #cbd5e1;text-align:left}'
-            . 'th{background:#f1f5f9}.total{margin-top:1rem;font-size:1.25rem;font-weight:700;text-align:right}'
+            . 'table{width:100%;border-collapse:collapse}th,td{padding:.5rem;border-bottom:1px solid #cbd5e1;text-align:right}'
+            . 'th:first-child,td:first-child{text-align:left}'
+            . 'th{background:#f1f5f9;font-size:.75rem}'
+            . 'tfoot td{font-weight:700;border-top:2px solid #1e293b}'
+            . '.total{margin-top:1rem;font-size:1.25rem;font-weight:700;text-align:right}'
             . '</style></head><body>'
             . '<h1>' . htmlspecialchars($quote['name'] ?? 'Quote') . '</h1>'
             . '<div class="meta">Customer: ' . htmlspecialchars($data['customerName'] ?? '—')
             . ' &nbsp; Status: ' . htmlspecialchars($status)
             . ' &nbsp; Currency: ' . htmlspecialchars($currency) . '</div>'
-            . '<table><thead><tr><th>Item</th><th>Type</th><th>Qty</th><th>Material</th><th>Process</th><th>Total</th></tr></thead>'
-            . '<tbody>' . $rows . '</tbody></table>'
+            . '<table><thead><tr><th>Item</th><th>Type</th><th>Qty</th><th>Mat</th><th>Bm hrs</th><th>W hrs</th><th>M hrs</th><th>Lab</th><th>Cons</th><th>Serve</th><th>NDT</th><th>Lining</th><th>Paint</th><th>Transport</th><th>Total</th></tr></thead>'
+            . '<tbody>' . $rows . '</tbody>'
+            . '<tfoot><tr><td colspan="3">Totals</td>'
+            . '<td>' . $totalsRow('material') . '</td>'
+            . '<td>' . $totalsRow('boilerHrs') . '</td>'
+            . '<td>' . $totalsRow('weldHrs') . '</td>'
+            . '<td>' . $totalsRow('machHrs') . '</td>'
+            . '<td>' . $totalsRow('labor') . '</td>'
+            . '<td>' . $totalsRow('consumables') . '</td>'
+            . '<td>' . $totalsRow('services') . '</td>'
+            . '<td>' . $totalsRow('ndt') . '</td>'
+            . '<td>' . $totalsRow('lining') . '</td>'
+            . '<td>' . $totalsRow('paint') . '</td>'
+            . '<td>' . $totalsRow('transport') . '</td>'
+            . '<td>' . $totalsRow('total') . '</td>'
+            . '</tr></tfoot></table>'
             . '<div class="total">Grand Total: ' . number_format((float)$total, 2) . ' ' . htmlspecialchars($currency) . '</div>'
             . '</body></html>';
 

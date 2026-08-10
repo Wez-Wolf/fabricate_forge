@@ -71,6 +71,8 @@ class tools extends Base
             case 'process_welding':   return $this->calcProcessWelding($in);
             case 'process_machining': return $this->calcProcessMachining($in);
             case 'process_assembly':  return $this->calcProcessAssembly($in);
+            case 'tank':              return $this->calcTank($in);
+            case 'pipe':              return $this->calcPipe($in);
             default:
                 return ['error' => "Unknown tool: $tool", 'error_code' => 400];
         }
@@ -258,6 +260,107 @@ class tools extends Base
             'fixtureCost' => self::r2($fixtureCost),
             'inspectionCost' => self::r2($inspectionCost),
             'totalCost' => self::r2($totalCost),
+        ];
+    }
+
+    // ── Tank builder (cylindrical vessel takeoff) ───────
+
+    private function calcTank($in)
+    {
+        $diameter = (float)\getVal($in, 'diameter', 1200);             // mm (shell OD)
+        $length = (float)\getVal($in, 'length', 3000);                 // mm (shell length)
+        $thickness = (float)\getVal($in, 'thickness', 10);             // mm
+        $quantity = (float)\getVal($in, 'quantity', 1);
+        $rate = (float)\getVal($in, 'materialRate', 25);
+        $waste = (float)\getVal($in, 'wasteFactor', 10);
+        $heads = (int)\getVal($in, 'heads', 2);                        // 0 | 1 | 2 flat heads
+        $density = self::DENSITIES[\getVal($in, 'materialType', 'steel')] ?? self::DENSITIES['steel'];
+
+        $dM = $diameter / 1000;
+        $lM = $length / 1000;
+        $tM = $thickness / 1000;
+
+        // Shell: π·D·L (rolling a rectangle). Heads: flat circles π·r² each.
+        $shellArea = M_PI * $dM * $lM;                                  // m²
+        $headArea = $heads * M_PI * pow($dM / 2, 2);                    // m²
+        $totalArea = $shellArea + $headArea;
+
+        // Volume of metal = area × thickness; mass = volume × density × qty
+        $metalVolume = $totalArea * $tM;                                // m³
+        $massKg = $metalVolume * $density * $quantity;
+        $materialCost = $massKg * $rate;
+        $totalCost = $materialCost * (1 + $waste / 100);
+
+        $capacitLiters = M_PI * pow($dM / 2, 2) * $lM * 1000;           // usable volume
+
+        return [
+            'type' => 'tank',
+            'shellArea' => self::r2($shellArea),
+            'headArea' => self::r2($headArea),
+            'totalArea' => self::r2($totalArea),
+            'massKg' => self::r2($massKg),
+            'capacityLitres' => round($capacitLiters),
+            'materialCost' => self::r2($materialCost),
+            'totalCost' => self::r2($totalCost),
+            'density' => $density,
+        ];
+    }
+
+    // ── Pipe library (schedule reference + takeoff) ─────
+
+    /**
+     * Nominal pipe sizes: DN → [OD mm, sch40 wall mm, sch80 wall mm].
+     * Compact standard-steel schedule reference (ASTM B36.10 approximations).
+     */
+    const PIPE_TABLE = [
+        '15'  => [21.3, 2.77, 3.73],
+        '20'  => [26.9, 2.87, 3.91],
+        '25'  => [33.7, 3.38, 4.55],
+        '32'  => [42.4, 3.56, 4.85],
+        '40'  => [48.3, 3.68, 5.08],
+        '50'  => [60.3, 3.91, 5.54],
+        '65'  => [76.1, 5.16, 7.01],
+        '80'  => [88.9, 5.49, 7.62],
+        '100' => [114.3, 6.02, 8.56],
+        '150' => [168.3, 7.11, 10.97],
+        '200' => [219.1, 8.18, 12.70],
+        '250' => [273.0, 9.27, 15.09],
+        '300' => [323.9, 10.31, 17.48],
+    ];
+
+    private function calcPipe($in)
+    {
+        $dn = (string)\getVal($in, 'nominalSize', '50');
+        $schedule = (string)\getVal($in, 'schedule', '40');
+        $lengthM = (float)\getVal($in, 'lengthM', 6);                  // metres per length
+        $quantity = (float)\getVal($in, 'quantity', 1);
+        $rate = (float)\getVal($in, 'materialRate', 25);
+        $density = self::DENSITIES[\getVal($in, 'materialType', 'steel')] ?? self::DENSITIES['steel'];
+
+        $row = self::PIPE_TABLE[$dn] ?? null;
+        if (!$row) {
+            return ['error' => "Unknown nominal size: DN$dn", 'error_code' => 400];
+        }
+        $od = $row[0];
+        $wall = ($schedule === '80') ? $row[2] : $row[1];
+
+        // Weight per metre: π × (OD − t) × t × density / 1e6  (kg/m)
+        $weightPerM = M_PI * ($od - $wall) * $wall * $density / 1000000;
+        $totalLength = $lengthM * $quantity;
+        $totalWeight = $weightPerM * $totalLength;
+        $materialCost = $totalWeight * $rate;
+
+        return [
+            'type' => 'pipe',
+            'nominalSize' => 'DN' . $dn,
+            'schedule' => 'Sch ' . $schedule,
+            'od' => $od,
+            'wall' => $wall,
+            'weightPerM' => self::r2($weightPerM),
+            'totalLength' => self::r2($totalLength),
+            'totalWeight' => self::r2($totalWeight),
+            'materialCost' => self::r2($materialCost),
+            'totalCost' => self::r2($materialCost),
         ];
     }
 

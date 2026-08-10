@@ -24,6 +24,10 @@ tree:
     - entities.php
   - assets/
   - components/
+    - about/
+      - about.css
+      - about.html
+      - about.js
     - admin/
       - admin.css
       - admin.html
@@ -44,6 +48,10 @@ tree:
       - dashboard.css
       - dashboard.html
       - dashboard.js
+    - forgot/
+      - forgot.css
+      - forgot.html
+      - forgot.js
     - landing/
       - landing.css
       - landing.html
@@ -88,6 +96,10 @@ tree:
       - reports.css
       - reports.html
       - reports.js
+    - reset/
+      - reset.css
+      - reset.html
+      - reset.js
     - settings/
       - settings.css
       - settings.html
@@ -103,6 +115,8 @@ tree:
     - vue.php
   - scripts/
     - seed-materials.php
+    - seed-prefabs.php
+    - seed-test-quote.php
   - seed-data/
     - fasteners.json
     - fittings.json
@@ -121,13 +135,13 @@ routes:
   (none detected)
 
 external_deps:
-  (none)
+  - api
 
 file_counts:
-  php: 28
+  php: 30
   vue: 0
-  js/ts: 18
-  styles: 19
+  js/ts: 21
+  styles: 22
   docs: 3
 
 symbols:

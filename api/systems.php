@@ -10,6 +10,7 @@
  *     quote:    { id, name, status, data, ... }        // the quote entity
  *     entities: [ entity + components + own cost ],    // all entities in the quote
  *     costs:    { entityId: costComponentData },       // map for UI lookups
+ *     totals:   { col: Σ across entities },            // per-column sums (material, boilerHrs, ndt, …)
  *     total_cost: number                               // grand total (auto-persisted)
  *   }
  *
@@ -78,24 +79,36 @@ class systems extends Base
             unset($e);
         }
 
-        // 4. Grand total = Σ(entity total) — cost.php already multiplies by
-        //    quantity inside calculate_entity (material×qty, process×qty).
+        // 4. Grand total + per-column totals = Σ(entity cost element)
+        //    cost.php already multiplies by quantity inside calculate_entity
+        //    (material×qty, process×qty, on-costs×qty).
+        $COST_COLUMNS = [
+            'material', 'boilerHrs', 'weldHrs', 'machHrs', 'labor',
+            'consumables', 'services', 'ndt', 'lining', 'paint', 'transport',
+            'processTotal', 'margin', 'subtotal', 'total',
+        ];
+        $totals = array_fill_keys($COST_COLUMNS, 0.0);
         $grandTotal = 0.0;
         foreach ($entities as $e) {
             $c = $e['cost'] ?? null;
-            if ($c && isset($c['total'])) {
-                $grandTotal += (float)$c['total'];
+            if (!$c) continue;
+            foreach ($COST_COLUMNS as $col) {
+                if (isset($c[$col])) $totals[$col] += (float)$c[$col];
             }
         }
-        $grandTotal = \api\cost::r2($grandTotal);
+        foreach ($totals as $col => $v) {
+            $totals[$col] = \api\cost::r2($v);
+        }
+        $grandTotal = $totals['total'];
 
-        // 5. Auto-persist totalCost into the quote entity's cost component
-        $this->persistQuoteTotal($quoteId, $grandTotal, count($entities));
+        // 5. Auto-persist totalCost + column totals into the quote's cost component
+        $this->persistQuoteTotal($quoteId, $grandTotal, count($entities), $totals);
 
         return [
             'quote' => $quote,
             'entities' => $entities,
             'costs' => $costs,
+            'totals' => $totals,
             'total_cost' => $grandTotal,
         ];
     }
@@ -176,15 +189,17 @@ class systems extends Base
     // ── Internal ───────────────────────────────────────
 
     /**
-     * Persist grand total + entity count into the quote's cost component.
-     * If no cost component exists yet, create one (holds quote-level data).
+     * Persist grand total + entity count + column totals into the quote's cost
+     * component. If no cost component exists yet, create one (holds quote-level
+     * data).
      */
-    private function persistQuoteTotal($quoteId, $grandTotal, $entityCount)
+    private function persistQuoteTotal($quoteId, $grandTotal, $entityCount, $totals = [])
     {
         $quoteCostData = [
             'total' => $grandTotal,
             'subtotal' => $grandTotal,
             'entity_count' => $entityCount,
+            'totals' => $totals,
             'lastUpdated' => date('c'),
         ];
         $comps = $this->getComponents($quoteId, 'cost');

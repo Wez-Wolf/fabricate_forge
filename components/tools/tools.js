@@ -21,8 +21,14 @@ var comp = {
             welding: { weldType: 'fillet', weldLength: 1000, quantity: 1, materialThickness: 6, qualityFactor: 1, laborRate: 90, consumableRate: 2, equipmentRate: 25 },
             machining: { operationType: 'drilling', materialType: 'steel', setupTime: 30, quantity: 10, complexityFactor: 1, laborRate: 90, toolWearRate: 5, machineRate: 60 },
             assembly: { componentCount: 20, timePerComponent: 2, complexityFactor: 1, inspectionTime: 15, laborRate: 90, fixtureCost: 0 },
+            // Tank + pipe inputs
+            tank: { diameter: 1200, length: 3000, thickness: 10, heads: 2, quantity: 1, materialRate: 25, wasteFactor: 10, materialType: 'steel' },
+            pipe: { nominalSize: '50', schedule: '40', lengthM: 6, quantity: 1, materialRate: 25, materialType: 'steel' },
+            pipeSizes: ['15', '20', '25', '32', '40', '50', '65', '80', '100', '150', '200', '250', '300'],
             matResult: null,
             procResult: null,
+            tankResult: null,
+            pipeResult: null,
         };
     },
     methods: {
@@ -48,6 +54,30 @@ var comp = {
                 var tool = 'process_' + this.procMode;
                 var res = await WEB.api('./api/tools.php', { action: 'calculate', input: { tool: tool, inputs: inputs } });
                 this.procResult = (res && res.data) || res || {};
+            } catch (e) {
+                this.error = e.message || 'Calculation failed';
+            } finally {
+                this.calculating = false;
+            }
+        },
+        async calcTank() {
+            this.calculating = true;
+            this.error = '';
+            try {
+                var res = await WEB.api('./api/tools.php', { action: 'calculate', input: { tool: 'tank', inputs: this.tank } });
+                this.tankResult = (res && res.data) || res || {};
+            } catch (e) {
+                this.error = e.message || 'Calculation failed';
+            } finally {
+                this.calculating = false;
+            }
+        },
+        async calcPipe() {
+            this.calculating = true;
+            this.error = '';
+            try {
+                var res = await WEB.api('./api/tools.php', { action: 'calculate', input: { tool: 'pipe', inputs: this.pipe } });
+                this.pipeResult = (res && res.data) || res || {};
             } catch (e) {
                 this.error = e.message || 'Calculation failed';
             } finally {

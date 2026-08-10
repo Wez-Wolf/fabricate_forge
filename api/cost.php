@@ -10,10 +10,13 @@
  *
  * 5-layer model (mirrors cost-system.js in the original app):
  *   L1 material   = massKg × unitCostPerKg × quantity
- *   L2 process    = Σ(hours × effectiveRate) × quantity
- *   L3 on-costs   = consumables + services + paint (× quantity)
+ *   L2 process    = Σ(hours × effectiveRate) × quantity  (Bm/W/M hrs exposed)
+ *   L3 on-costs   = consumables + services + ndt + lining + paint (× quantity)
  *   L4 logistics  = transport (once per entity)
  *   L5 margin     = subtotal × marginPercent%
+ *
+ * Per-entity on-cost overrides (Cons/Serve/NDT/Lining/Paint/Transport) can be
+ * stored on entity.data.onCosts (set from the quote UI); explicit options win.
  *
  * Rates: entity rate component → company defaults → GLOBAL_DEFAULT_RATES.
  */
@@ -144,15 +147,21 @@ class cost extends Base
         }
 
         // L3 on-costs (per unit × quantity)
-        $consumables = (float)\getVal($options, 'consumables', 0) * $quantity;
-        $services = (float)\getVal($options, 'services', 0) * $quantity;
-        $paint = (float)\getVal($options, 'paint', 0) * $quantity;
+        // Per-entity overrides live on entity.data.onCosts (set from the quote
+        // UI); explicit options win over those. Elements: consumables, services,
+        // ndt, lining, paint. Transport is L4 (once per entity).
+        $onCosts = $entity['data']['onCosts'] ?? [];
+        $consumables = (float)\getVal($options, 'consumables', $onCosts['consumables'] ?? 0) * $quantity;
+        $services = (float)\getVal($options, 'services', $onCosts['services'] ?? 0) * $quantity;
+        $ndt = (float)\getVal($options, 'ndt', $onCosts['ndt'] ?? 0) * $quantity;
+        $lining = (float)\getVal($options, 'lining', $onCosts['lining'] ?? 0) * $quantity;
+        $paint = (float)\getVal($options, 'paint', $onCosts['paint'] ?? 0) * $quantity;
 
         // L4 transport (once)
-        $transport = (float)\getVal($options, 'transport', 0);
+        $transport = (float)\getVal($options, 'transport', $onCosts['transport'] ?? 0);
 
         // Subtotal + L5 margin
-        $subtotal = $materialTotal + $processTotal + $consumables + $services + $paint + $transport;
+        $subtotal = $materialTotal + $processTotal + $consumables + $services + $ndt + $lining + $paint + $transport;
         $margin = $subtotal * ($marginPercent / 100);
         $total = $subtotal + $margin;
 
@@ -160,7 +169,12 @@ class cost extends Base
         $costData = [
             'material' => self::r2($materialTotal),
             'massKg' => self::r2($massKg),
+            // Process hours (for the quote grid: Bm/W/M hrs)
+            'boilerHrs' => self::r2($hours['boilermaking'] ?? 0),
+            'weldHrs' => self::r2($hours['welding'] ?? 0),
+            'machHrs' => self::r2($hours['machining'] ?? 0),
             'processTotal' => self::r2($processTotal),
+            'labor' => self::r2($processTotal), // alias — Lab cost = Σ(hours × rate)
             'boilermaking' => self::r2($perTrade['boilermaking'] ?? 0),
             'welding' => self::r2($perTrade['welding'] ?? 0),
             'machining' => self::r2($perTrade['machining'] ?? 0),
@@ -171,6 +185,8 @@ class cost extends Base
             'assembly' => self::r2($perTrade['assembly'] ?? 0),
             'consumables' => self::r2($consumables),
             'services' => self::r2($services),
+            'ndt' => self::r2($ndt),
+            'lining' => self::r2($lining),
             'paint' => self::r2($paint),
             'transport' => self::r2($transport),
             'margin' => self::r2($margin),

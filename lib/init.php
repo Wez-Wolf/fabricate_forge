@@ -36,9 +36,15 @@ echo <<<'JS'
   var _pp = MAIN.processPath ? MAIN.processPath.bind(MAIN) : null;
   MAIN.processPath = function(parts){
     var authed = LS && LS.get('auth_id') && LS.get('auth_id') !== '-100';
+    // Password reset is a public multi-segment route: /reset-password/<token>
+    if (!authed && parts.length >= 2 && parts[0] === 'reset-password') {
+      MAIN.setComp('reset', {});
+      return;
+    }
     if (!authed && parts.length === 1) {
       var p = parts[0] || '';
-      if (p === 'login' || p === 'signup' || p === 'join') {
+      if (p === 'login' || p === 'signup' || p === 'join' || p === 'forgot-password') {
+        if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }
         if (_pp) _pp(parts);
         return;
       }
@@ -68,9 +74,11 @@ echo "  window._landingPending = false;";
 echo "  var _pp2 = MAIN.processPath ? MAIN.processPath.bind(MAIN) : null;";
 echo "  MAIN.processPath = function(parts){";
 echo "    var authed = LS && LS.get('auth_id') && LS.get('auth_id') !== '-100';";
+echo "    if (!authed && parts.length >= 2 && parts[0] === 'reset-password') { MAIN.setComp('reset', {}); return; }";
 echo "    if (!authed && parts.length === 1) {";
 echo "      var p = parts[0] || '';";
 echo "      if (p === 'login' || p === 'signup' || p === 'join') { if (_pp2) _pp2(parts); return; }";
+echo "      if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }";
 echo "      MAIN.setComp('landing', {}); return;";
 echo "    }";
 echo "    if (_pp2) _pp2(parts);";
@@ -101,9 +109,11 @@ echo "  window._landingPending = false;";
 echo "  var _pp2 = MAIN.processPath ? MAIN.processPath.bind(MAIN) : null;";
 echo "  MAIN.processPath = function(parts){";
 echo "    var authed = LS && LS.get('auth_id') && LS.get('auth_id') !== '-100';";
+echo "    if (!authed && parts.length >= 2 && parts[0] === 'reset-password') { MAIN.setComp('reset', {}); return; }";
 echo "    if (!authed && parts.length === 1) {";
 echo "      var p = parts[0] || '';";
 echo "      if (p === 'login' || p === 'signup' || p === 'join') { if (_pp2) _pp2(parts); return; }";
+echo "      if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }";
 echo "      MAIN.setComp('landing', {}); return;";
 echo "    }";
 echo "    if (_pp2) _pp2(parts);";

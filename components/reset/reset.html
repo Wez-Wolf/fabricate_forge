@@ -1,0 +1,21 @@
+<div class="C_canvas">
+    <div class="C_card">
+        <h1 class="C_title">Choose a New Password</h1>
+        <p class="C_sub">Enter a new password for your account.</p>
+
+        <div v-if="error" class="C_error">{{ error }}</div>
+        <div v-if="success" class="C_success">
+            <p>{{ success }}</p>
+            <forge-button label="Go to Login" @click="goLogin" />
+        </div>
+
+        <div v-else class="C_form" @keyup.enter="reset">
+            <label class="C_label">New Password <span class="C_required_text">*</span></label>
+            <forge-input-password v-model="pass" placeholder="at least 6 characters" />
+            <label class="C_label">Confirm Password <span class="C_required_text">*</span></label>
+            <forge-input-password v-model="pass2" placeholder="repeat password" />
+            <forge-button label="Reset Password" @click="reset" :disabled="loading" />
+            <p class="C_link" @click="goLogin">← Back to Login</p>
+        </div>
+    </div>
+</div>

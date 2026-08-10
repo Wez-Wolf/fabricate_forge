@@ -48,15 +48,15 @@
 
             <div class="C_section">
                 <div class="C_section_header"><h2>Cost Breakdown</h2></div>
-                <table class="C_table">
+                <div class="C_table_wrap">
+                <table class="C_table C_cost_table">
                     <thead>
                         <tr>
                             <th>Item</th>
                             <th>Type</th>
                             <th>Qty</th>
-                            <th class="C_right">Material</th>
-                            <th class="C_right">Process</th>
-                            <th class="C_right">Total</th>
+                            <th v-for="c in costColumns" :key="c.key" class="C_right">{{ c.label }}</th>
+                            <th class="C_right">On-Costs</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,18 +64,19 @@
                             <td class="C_strong">{{ e.name }}</td>
                             <td>{{ e.type }}</td>
                             <td>{{ e.quantity }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.material) }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.processTotal) }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.total) }}</td>
+                            <td v-for="c in costColumns" :key="c.key" class="C_right num">{{ fmtCell(e.cost[c.key], c.type) }}</td>
+                            <td class="C_right"><button class="C_link" @click="openCostEditor(e)">edit</button></td>
                         </tr>
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="5" class="C_right C_strong">Total</td>
-                            <td class="C_right num C_strong">{{ fmtMoney(totalCost) }}</td>
+                            <td colspan="3" class="C_right C_strong">Totals</td>
+                            <td v-for="c in costColumns" :key="c.key" class="C_right num C_strong">{{ fmtCell(totals[c.key], c.type) }}</td>
+                            <td></td>
                         </tr>
                     </tfoot>
                 </table>
+                </div>
                 <div v-if="!entities.length" class="C_empty">
                     <p>No items on this quote yet.</p>
                 </div>
@@ -104,6 +105,38 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Tree tab -->
+        <div v-if="activeTab === 'tree'" class="C_tab_content">
+            <div class="C_section">
+                <div class="C_section_header">
+                    <h2>Entity Hierarchy Tree</h2>
+                    <span class="C_hint">Assembly structure via contains links — click an item to edit.</span>
+                </div>
+                <div v-if="treeLoading" class="C_loading">
+                    <forge-loader variant="dots" label="Loading tree..." />
+                </div>
+                <div v-else-if="!treeData.length" class="C_empty">
+                    <p>No entity hierarchy yet.</p>
+                    <p class="C_hint">Add items or import a BOM to build the tree.</p>
+                    <forge-button label="Add Item" @click="openAddEntity" />
+                </div>
+                <div v-else class="C_tree">
+                    <tree-node
+                        v-for="n in treeData"
+                        :key="n.id"
+                        :node="n"
+                        :depth="0"
+                        :open="treeOpen"
+                        :fmt="fmtMoney"
+                        :abbr="abbr"
+                        :cost-of="treeCost"
+                        @edit="editEntity"
+                        @toggle="toggleTree"
+                    />
+                </div>
             </div>
         </div>
 

@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS prefab_template (
     template_data JSONB DEFAULT '{}'::jsonb,
     version INT DEFAULT 1,
     data JSONB DEFAULT '{}'::jsonb,
-    user_id_owner UUID NOT NULL,
+    user_id_owner UUID,          -- NULL = global/system template
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_active BOOLEAN DEFAULT TRUE
@@ -64,9 +64,10 @@ SQL);
 
     public function handle_list($input = [])
     {
+        // Global templates (owner NULL, seeded by scripts) + user's own.
         $res = $this->pgCrud->read([
             'table' => 'prefab_template',
-            'where' => 'user_id_owner = $1 AND is_active = TRUE',
+            'where' => '(user_id_owner IS NULL OR user_id_owner = $1) AND is_active = TRUE',
             'params' => [$this->user_id],
             'order_fields' => ['name ASC'],
         ]);
@@ -79,7 +80,7 @@ SQL);
         if (!$id) return ['error' => 'prefab_id is required.'];
         $res = $this->pgCrud->read([
             'table' => 'prefab_template',
-            'where' => 'id = $1 AND user_id_owner = $2',
+            'where' => 'id = $1 AND (user_id_owner IS NULL OR user_id_owner = $2)',
             'params' => [$id, $this->user_id],
             'limit' => 1,
         ]);

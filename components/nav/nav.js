@@ -33,6 +33,7 @@ var comp = {
                 { tag: 'production',  name: 'Production',  svg: 'activity',     comp: 'production' },
                 { tag: 'reports',   name: 'Reports',   svg: 'bar-chart',        comp: 'reports' },
                 { tag: 'settings',  name: 'Settings',  svg: 'settings',         comp: 'settings' },
+                { tag: 'about',     name: 'About',     svg: 'info',             comp: 'about' },
                 { tag: 'admin',     name: 'Admin',     svg: 'shield',           comp: 'admin' },
             ],
         };

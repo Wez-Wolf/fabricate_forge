@@ -155,5 +155,90 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tank Builder -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Tank Builder</h2>
+                <span class="C_hint">Cylindrical vessel shell takeoff — area, mass and cost.</span>
+            </div>
+
+            <div class="C_input_grid">
+                <label class="C_field">Diameter (mm)<input v-model.number="tank.diameter" type="number" min="1" step="1" /></label>
+                <label class="C_field">Shell Length (mm)<input v-model.number="tank.length" type="number" min="1" step="1" /></label>
+                <label class="C_field">Thickness (mm)<input v-model.number="tank.thickness" type="number" min="0.5" step="0.5" /></label>
+                <label class="C_field">Heads
+                    <select v-model.number="tank.heads">
+                        <option :value="0">None</option>
+                        <option :value="1">1 (flat)</option>
+                        <option :value="2">2 (flat)</option>
+                    </select>
+                </label>
+                <label class="C_field">Quantity<input v-model.number="tank.quantity" type="number" min="1" step="1" /></label>
+                <label class="C_field">Rate (per kg)<input v-model.number="tank.materialRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Waste %<input v-model.number="tank.wasteFactor" type="number" min="0" max="50" step="1" /></label>
+                <label class="C_field">Material
+                    <select v-model="tank.materialType">
+                        <option value="steel">Steel</option>
+                        <option value="stainless">Stainless Steel</option>
+                        <option value="aluminum">Aluminum</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="C_save_row">
+                <forge-button label="Calculate Tank" @click="calcTank" :disabled="calculating" />
+            </div>
+
+            <div v-if="tankResult" class="C_results">
+                <div v-for="(v, k) in tankResult" :key="k" class="C_result_row">
+                    <span class="C_result_label">{{ prettyKey(k) }}</span>
+                    <span class="C_result_value num">{{ formatVal(v) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipe Library -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Pipe &amp; Fittings Library</h2>
+                <span class="C_hint">Standard schedule takeoff — weight per metre and cost.</span>
+            </div>
+
+            <div class="C_input_grid">
+                <label class="C_field">Nominal Size
+                    <select v-model="pipe.nominalSize">
+                        <option v-for="dn in pipeSizes" :key="dn" :value="dn">DN{{ dn }}</option>
+                    </select>
+                </label>
+                <label class="C_field">Schedule
+                    <select v-model="pipe.schedule">
+                        <option value="40">Sch 40</option>
+                        <option value="80">Sch 80</option>
+                    </select>
+                </label>
+                <label class="C_field">Length (m)<input v-model.number="pipe.lengthM" type="number" min="0.1" step="0.1" /></label>
+                <label class="C_field">Quantity<input v-model.number="pipe.quantity" type="number" min="1" step="1" /></label>
+                <label class="C_field">Rate (per kg)<input v-model.number="pipe.materialRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Material
+                    <select v-model="pipe.materialType">
+                        <option value="steel">Steel</option>
+                        <option value="stainless">Stainless Steel</option>
+                        <option value="aluminum">Aluminum</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="C_save_row">
+                <forge-button label="Calculate Pipe" @click="calcPipe" :disabled="calculating" />
+            </div>
+
+            <div v-if="pipeResult" class="C_results">
+                <div v-for="(v, k) in pipeResult" :key="k" class="C_result_row">
+                    <span class="C_result_label">{{ prettyKey(k) }}</span>
+                    <span class="C_result_value num">{{ formatVal(v) }}</span>
+                </div>
+            </div>
+        </div>
     </template>
 </div>

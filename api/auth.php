@@ -14,7 +14,7 @@ include_once(__DIR__ . "/_base.php");
 
 class auth extends \forge\api\Auth
 {
-    protected $publicActions = ['login', 'signup', 'logout', 'forgot_password'];
+    protected $publicActions = ['login', 'signup', 'logout', 'forgot_password', 'reset_password'];
 
     protected function buildTable()
     {
@@ -30,6 +30,19 @@ CREATE TABLE IF NOT EXISTS user_prefs (
 )
 SQL);
         $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_up_user ON user_prefs(user_id)');
+
+        // Password reset tokens (single-use, expiring).
+        $this->pgCrud->execute(<<<'SQL'
+CREATE TABLE IF NOT EXISTS password_reset (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+)
+SQL);
+        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_pr_token ON password_reset(token_hash)');
     }
 
     /**
@@ -88,6 +101,98 @@ SQL);
     public function handle_logout($input = [])
     {
         return parent::handle_logout($input);
+    }
+
+    /**
+     * Forgot password (public): email → single-use reset token.
+     *
+     * Production would email the reset link; without a mailer the token is
+     * returned in the response so the reset flow is usable/testable end-to-end.
+     * Token hashes are stored SHA-256 (never plaintext). Expires in 1 hour.
+     *
+     * Input: { email }
+     * Returns: { data: { sent: true, token, reset_url } } — token visible for dev.
+     * Always answers "sent" for unknown emails too (no user enumeration).
+     */
+    public function handle_forgot_password($input = [])
+    {
+        $email = strtolower(trim((string)\getVal($input, 'email', '')));
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['error' => 'A valid email is required.', 'error_code' => 400];
+        }
+
+        $res = $this->pgCrud->read([
+            'table' => 'user',
+            'fields' => ['id'],
+            'where' => 'lower(email) = $1',
+            'params' => [$email],
+            'limit' => 1,
+        ]);
+        $user = $res['data'][0] ?? null;
+
+        $token = bin2hex(random_bytes(24));
+        if ($user) {
+            $this->pgCrud->save([
+                'table' => 'password_reset',
+                'data' => [
+                    'user_id' => $user['id'],
+                    'token_hash' => hash('sha256', $token),
+                    'expires_at' => date('c', time() + 3600),
+                    'used' => false,
+                ],
+            ]);
+        }
+
+        return ['data' => [
+            'sent' => true,
+            'token' => $token,                       // dev-friendly; email in prod
+            'reset_url' => '/reset-password/' . $token,
+        ]];
+    }
+
+    /**
+     * Reset password (public): { token, pass } → new password set.
+     * Validates: token exists, not used, not expired. Single-use.
+     */
+    public function handle_reset_password($input = [])
+    {
+        $token = trim((string)\getVal($input, 'token', ''));
+        $pass = (string)\getVal($input, 'pass', '');
+        if (!$token || strlen($pass) < 6) {
+            return ['error' => 'token and a password of at least 6 characters are required.', 'error_code' => 400];
+        }
+
+        $hash = hash('sha256', $token);
+        $res = $this->pgCrud->read([
+            'table' => 'password_reset',
+            'fields' => ['id', 'user_id', 'expires_at', 'used'],
+            'where' => 'token_hash = $1',
+            'params' => [$hash],
+            'limit' => 1,
+        ]);
+        $row = $res['data'][0] ?? null;
+        if (!$row) {
+            return ['error' => 'Invalid or expired reset token.', 'error_code' => 400];
+        }
+        if ($row['used']) {
+            return ['error' => 'This reset link has already been used.', 'error_code' => 400];
+        }
+        if (strtotime($row['expires_at']) < time()) {
+            return ['error' => 'This reset link has expired.', 'error_code' => 400];
+        }
+
+        // Set the new password (bcrypt, same as forge Auth login expects)
+        $this->pgCrud->execute(
+            "UPDATE \"user\" SET password = \$1 WHERE id = \$2",
+            [password_hash($pass, PASSWORD_BCRYPT), $row['user_id']]
+        );
+        // Single-use: mark consumed
+        $this->pgCrud->execute(
+            "UPDATE password_reset SET used = TRUE WHERE id = \$1",
+            [$row['id']]
+        );
+
+        return ['data' => ['success' => true, 'message' => 'Password updated. You can now log in.']];
     }
 
     private function getPrefs($userId)

@@ -1,0 +1,40 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">About Fabrication Costing System</h1>
+            <p class="C_subtitle">Built on the Forge framework — Vue + PHP.</p>
+        </div>
+    </div>
+
+    <!-- System Overview -->
+    <div class="C_section">
+        <h2 class="C_card_title">System Overview</h2>
+        <p class="C_card_text">
+            The Fabrication Costing System is a comprehensive web application for manufacturing
+            cost estimation and workflow management. It provides powerful tools for the quote
+            workflow — from material takeoff to process pricing and margin.
+        </p>
+    </div>
+
+    <!-- Key Features -->
+    <div class="C_section">
+        <h2 class="C_card_title">Key Features</h2>
+        <div class="C_feature_grid">
+            <div v-for="f in features" :key="f.title" class="C_feature">
+                <forge-svg :s_path="f.icon" class="C_feature_icon" />
+                <div>
+                    <strong>{{ f.title }}</strong>
+                    <p>{{ f.desc }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="C_section">
+        <h2 class="C_card_title">Technology Stack</h2>
+        <div class="C_stack">
+            <span v-for="t in stack" :key="t" class="C_stack_pill">{{ t }}</span>
+        </div>
+    </div>
+</div>
