@@ -1,0 +1,47 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Admin</h1>
+            <p class="C_subtitle">User management — assign roles.</p>
+        </div>
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+    <div v-if="msg" class="C_msg">{{ msg }}</div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading users..." />
+    </div>
+
+    <div v-else class="C_section">
+        <table class="C_table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="u in users" :key="u.id">
+                    <td class="C_strong">{{ u.name || '—' }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        <select
+                            class="C_role_select"
+                            :value="u.role || 'viewer'"
+                            @change="setRole(u.id, $event.target.value)"
+                        >
+                            <option value="admin">Admin</option>
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div v-if="!users.length" class="C_empty">
+            <p>No users found.</p>
+        </div>
+    </div>
+</div>

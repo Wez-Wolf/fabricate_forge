@@ -1,0 +1,267 @@
+/* components/landing — business landing page */
+
+.C_page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* ── Nav ── */
+.C_nav {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.C_nav_inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.C_brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.C_logo {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--accent);
+}
+
+.C_brand_name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+}
+
+.C_brand_badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--accent);
+    color: var(--text-on-color);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+}
+
+.C_nav_actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.C_nav_link {
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.C_nav_link:hover {
+    color: var(--accent);
+}
+
+/* ── Hero ── */
+.C_hero {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 3rem 1.5rem;
+}
+
+.C_hero_inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    align-items: center;
+}
+
+.C_eyebrow {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+}
+
+.C_hero_title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+}
+
+.C_hero_sub {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 30rem;
+    margin: 0 0 1.5rem;
+    line-height: 1.5;
+}
+
+.C_hero_cta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_hero_alt {
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.C_hero_alt:hover {
+    text-decoration: underline;
+}
+
+.C_hero_media {
+    position: relative;
+}
+
+.C_hero_img {
+    width: 100%;
+    height: 22rem;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+}
+
+.C_hero_card {
+    position: absolute;
+    bottom: -1rem;
+    left: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    box-shadow: var(--shadow-md);
+}
+
+.C_hero_card_label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+}
+
+.C_hero_card_value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.C_hero_card_hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* ── Features ── */
+.C_features {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 3rem 1.5rem;
+}
+
+.C_features_inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.C_features_grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+}
+
+.C_feature {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.C_feature_icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--hover-bg);
+    color: var(--accent);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.C_feature_title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.C_feature_desc {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* ── CTA ── */
+.C_cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.C_cta_title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.C_cta_sub {
+    color: var(--text-dim);
+    margin: 0 0 0.5rem;
+}
+
+/* ── Footer ── */
+.C_footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .C_hero_inner { grid-template-columns: 1fr; gap: 2rem; }
+    .C_features_grid { grid-template-columns: 1fr 1fr; }
+    .C_hero_title { font-size: 2rem; }
+}
+
+@media (max-width: 480px) {
+    .C_features_grid { grid-template-columns: 1fr; }
+}

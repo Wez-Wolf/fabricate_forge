@@ -1,0 +1,21 @@
+# ── Secrets / env ──
+.env
+*.env.local
+
+# ── Forge shared (not part of this project) ──
+/forge/
+
+# ── PHP / logs ──
+*.log
+/cache/
+/logs/
+/tmp/
+
+# ── Editor / OS ──
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ── Test artifacts ──
+/tests/tmp/

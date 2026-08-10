@@ -1,0 +1,44 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Reports</h1>
+            <p class="C_subtitle">Quote summaries — export individual quotes as PDF.</p>
+        </div>
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div class="C_cards">
+        <div class="C_card">
+            <span class="C_card_label">Quotes</span>
+            <span class="C_card_value num">{{ totals.count }}</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Pipeline</span>
+            <span class="C_card_value num">{{ fmtMoney(totals.pipeline) }}</span>
+            <span class="C_card_hint">Submitted + Approved</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Revenue</span>
+            <span class="C_card_value num C_green">{{ fmtMoney(totals.revenue) }}</span>
+            <span class="C_card_hint">Invoiced</span>
+        </div>
+    </div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading reports..." />
+    </div>
+
+    <div class="C_list">
+        <forge-list
+            v-if="!loading"
+            :fields="fields"
+            :value="rows"
+            @onFetch="onFetch"
+            @onSvg="onSvg"
+        />
+        <div v-if="!loading && !rows.length" class="C_empty">
+            <p>No quotes to report.</p>
+        </div>
+    </div>
+</div>

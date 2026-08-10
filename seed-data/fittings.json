@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Elbow 90° DN50",
+    "profile": "Fitting",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "dimensions": "DN50",
+    "finish": "Black"
+  },
+  {
+    "name": "Elbow 90° DN100",
+    "profile": "Fitting",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "dimensions": "DN100",
+    "finish": "Black"
+  },
+  {
+    "name": "Tee DN50",
+    "profile": "Fitting",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "dimensions": "DN50",
+    "finish": "Black"
+  },
+  {
+    "name": "Tee DN100",
+    "profile": "Fitting",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "dimensions": "DN100",
+    "finish": "Black"
+  },
+  {
+    "name": "Flange DN50 PN16",
+    "profile": "Fitting",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "dimensions": "DN50",
+    "finish": "Zinc Plated"
+  },
+  {
+    "name": "Flange DN100 PN16",
+    "profile": "Fitting",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "dimensions": "DN100",
+    "finish": "Zinc Plated"
+  }
+]

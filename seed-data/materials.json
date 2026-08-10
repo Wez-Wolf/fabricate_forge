@@ -1,0 +1,761 @@
+[
+  {
+    "name": "S235JR Plate 6mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 6
+  },
+  {
+    "name": "S235JR Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 10
+  },
+  {
+    "name": "S235JR Plate 12mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 12
+  },
+  {
+    "name": "S235JR Plate 16mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 16
+  },
+  {
+    "name": "S235JR Plate 20mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 20
+  },
+  {
+    "name": "S235JR Plate 25mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 25
+  },
+  {
+    "name": "S355JR Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S355JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 10
+  },
+  {
+    "name": "S355JR Plate 16mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S355JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 16
+  },
+  {
+    "name": "S355JR Plate 20mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S355JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 20
+  },
+  {
+    "name": "S235JR Sheet 3mm",
+    "profile": "Sheet",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 3
+  },
+  {
+    "name": "S235JR Sheet 4mm",
+    "profile": "Sheet",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 4
+  },
+  {
+    "name": "S235JR Sheet 5mm",
+    "profile": "Sheet",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 5
+  },
+  {
+    "name": "S235JR Sheet 6mm",
+    "profile": "Sheet",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "thickness": 6
+  },
+  {
+    "name": "S235JR Angle 50x50x5",
+    "profile": "Angle",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 3.77
+  },
+  {
+    "name": "S235JR Angle 75x75x6",
+    "profile": "Angle",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 6.85
+  },
+  {
+    "name": "S235JR Angle 100x100x10",
+    "profile": "Angle",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 15.1
+  },
+  {
+    "name": "S235JR Channel 100x50x5",
+    "profile": "Channel",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 8.9
+  },
+  {
+    "name": "S235JR Channel 150x75x6",
+    "profile": "Channel",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 16.6
+  },
+  {
+    "name": "S235JR I-Beam 100x68x4.5",
+    "profile": "I-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 11.1
+  },
+  {
+    "name": "S235JR I-Beam 150x75x5",
+    "profile": "I-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 19.4
+  },
+  {
+    "name": "S235JR H-Beam 100x100x6",
+    "profile": "H-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 17.2
+  },
+  {
+    "name": "S235JR H-Beam 150x150x7",
+    "profile": "H-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 31.1
+  },
+  {
+    "name": "S235JR Round Bar 10mm",
+    "profile": "Round Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 0.62
+  },
+  {
+    "name": "S235JR Round Bar 20mm",
+    "profile": "Round Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 2.47
+  },
+  {
+    "name": "S235JR Round Bar 30mm",
+    "profile": "Round Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 5.55
+  },
+  {
+    "name": "S235JR Round Bar 40mm",
+    "profile": "Round Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 9.87
+  },
+  {
+    "name": "S235JR Round Bar 50mm",
+    "profile": "Round Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 15.41
+  },
+  {
+    "name": "S235JR Round Bar 60mm",
+    "profile": "Round Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 22.2
+  },
+  {
+    "name": "S235JR Square Bar 20mm",
+    "profile": "Square Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 3.14
+  },
+  {
+    "name": "S235JR Square Bar 25mm",
+    "profile": "Square Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 4.91
+  },
+  {
+    "name": "S235JR Square Bar 30mm",
+    "profile": "Square Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 7.07
+  },
+  {
+    "name": "S235JR Flat Bar 50x6mm",
+    "profile": "Flat Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 2.36
+  },
+  {
+    "name": "S235JR Flat Bar 100x10mm",
+    "profile": "Flat Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 7.85
+  },
+  {
+    "name": "S235JR Pipe DN50",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 8.47
+  },
+  {
+    "name": "S235JR Pipe DN80",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 14.6
+  },
+  {
+    "name": "S235JR Pipe DN100",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 20.1
+  },
+  {
+    "name": "S235JR Pipe DN150",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 34.3
+  },
+  {
+    "name": "S235JR Tube Square 50x50x3",
+    "profile": "Tube (Square)",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 4.25
+  },
+  {
+    "name": "S235JR Tube Square 100x100x5",
+    "profile": "Tube (Square)",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 14.8
+  },
+  {
+    "name": "S235JR Tube Rectangular 100x50x5",
+    "profile": "Tube (Rectangular)",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 11.4
+  },
+  {
+    "name": "S235JR Tube Round 50x3",
+    "profile": "Tube (Round)",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 20,
+    "massPerMeter": 4.28
+  },
+  {
+    "name": "304 Plate 6mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 20,
+    "thickness": 6
+  },
+  {
+    "name": "304 Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 20,
+    "thickness": 10
+  },
+  {
+    "name": "304 Sheet 3mm",
+    "profile": "Sheet",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 20,
+    "thickness": 3
+  },
+  {
+    "name": "304 Round Bar 20mm",
+    "profile": "Round Bar",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 20,
+    "massPerMeter": 2.49
+  },
+  {
+    "name": "304 Round Bar 30mm",
+    "profile": "Round Bar",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 20,
+    "massPerMeter": 5.6
+  },
+  {
+    "name": "316L Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "316L",
+    "density": 7900,
+    "unitCost": 20,
+    "thickness": 10
+  },
+  {
+    "name": "316L Pipe DN50",
+    "profile": "Pipe",
+    "materialType": "Stainless Steel",
+    "grade": "316L",
+    "density": 7900,
+    "unitCost": 20,
+    "massPerMeter": 8.54
+  },
+  {
+    "name": "6061-T6 Plate 6mm",
+    "profile": "Plate",
+    "materialType": "Aluminum",
+    "grade": "6061-T6",
+    "density": 2700,
+    "unitCost": 20,
+    "thickness": 6
+  },
+  {
+    "name": "6061-T6 Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Aluminum",
+    "grade": "6061-T6",
+    "density": 2700,
+    "unitCost": 20,
+    "thickness": 10
+  },
+  {
+    "name": "6061-T6 Sheet 3mm",
+    "profile": "Sheet",
+    "materialType": "Aluminum",
+    "grade": "6061-T6",
+    "density": 2700,
+    "unitCost": 20,
+    "thickness": 3
+  },
+  {
+    "name": "6061-T6 Round Bar 20mm",
+    "profile": "Round Bar",
+    "materialType": "Aluminum",
+    "grade": "6061-T6",
+    "density": 2700,
+    "unitCost": 20,
+    "massPerMeter": 0.85
+  },
+  {
+    "name": "6061-T6 Round Bar 30mm",
+    "profile": "Round Bar",
+    "materialType": "Aluminum",
+    "grade": "6061-T6",
+    "density": 2700,
+    "unitCost": 20,
+    "massPerMeter": 1.91
+  },
+  {
+    "name": "5083-H116 Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Aluminum",
+    "grade": "5083-H116",
+    "density": 2660,
+    "unitCost": 20,
+    "thickness": 10
+  },
+  {
+    "name": "5083-H116 Plate 16mm",
+    "profile": "Plate",
+    "materialType": "Aluminum",
+    "grade": "5083-H116",
+    "density": 2660,
+    "unitCost": 22,
+    "thickness": 16
+  },
+  {
+    "name": "5083-H116 Plate 20mm",
+    "profile": "Plate",
+    "materialType": "Aluminum",
+    "grade": "5083-H116",
+    "density": 2660,
+    "unitCost": 24,
+    "thickness": 20
+  },
+  {
+    "name": "SS 304 Plate 6mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 35,
+    "thickness": 6
+  },
+  {
+    "name": "SS 304 Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 35,
+    "thickness": 10
+  },
+  {
+    "name": "SS 304 Plate 16mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 35,
+    "thickness": 16
+  },
+  {
+    "name": "SS 304 Plate 20mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 35,
+    "thickness": 20
+  },
+  {
+    "name": "SS 316 Plate 10mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "316",
+    "density": 8000,
+    "unitCost": 42,
+    "thickness": 10
+  },
+  {
+    "name": "SS 316 Plate 16mm",
+    "profile": "Plate",
+    "materialType": "Stainless Steel",
+    "grade": "316",
+    "density": 8000,
+    "unitCost": 42,
+    "thickness": 16
+  },
+  {
+    "name": "SS 304 Angle 50x50x5",
+    "profile": "Angle",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 38,
+    "massPerMeter": 3.77
+  },
+  {
+    "name": "SS 304 Angle 75x75x6",
+    "profile": "Angle",
+    "materialType": "Stainless Steel",
+    "grade": "304",
+    "density": 7900,
+    "unitCost": 38,
+    "massPerMeter": 6.85
+  },
+  {
+    "name": "S235JR Flat Bar 50x10",
+    "profile": "Flat Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 3.93
+  },
+  {
+    "name": "S235JR Flat Bar 80x12",
+    "profile": "Flat Bar",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 7.54
+  },
+  {
+    "name": "S235JR Pipe 1inch SCH40",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 25,
+    "massPerMeter": 2.5,
+    "diameter": 33.4,
+    "thickness": 3.38
+  },
+  {
+    "name": "S235JR Pipe 2inch SCH40",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 25,
+    "massPerMeter": 5.44,
+    "diameter": 60.3,
+    "thickness": 3.91
+  },
+  {
+    "name": "S235JR Pipe 4inch SCH40",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 25,
+    "massPerMeter": 11.29,
+    "diameter": 114.3,
+    "thickness": 4.78
+  },
+  {
+    "name": "S235JR Pipe 6inch SCH40",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 25,
+    "massPerMeter": 17.12,
+    "diameter": 168.3,
+    "thickness": 5.49
+  },
+  {
+    "name": "S235JR Pipe 8inch SCH40",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 25,
+    "massPerMeter": 24.08,
+    "diameter": 219.1,
+    "thickness": 6.35
+  },
+  {
+    "name": "S235JR Pipe 12inch SCH40",
+    "profile": "Pipe",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 25,
+    "massPerMeter": 40.48,
+    "diameter": 323.9,
+    "thickness": 7.14
+  },
+  {
+    "name": "S235JR H-Beam 200x200x8",
+    "profile": "H-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 49.9
+  },
+  {
+    "name": "S235JR H-Beam 250x250x9",
+    "profile": "H-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 72.4
+  },
+  {
+    "name": "S235JR H-Beam 300x300x10",
+    "profile": "H-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 94.3
+  },
+  {
+    "name": "S235JR I-Beam 200x100x5.5",
+    "profile": "I-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 21.3
+  },
+  {
+    "name": "S235JR I-Beam 300x150x6.5",
+    "profile": "I-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 37.2
+  },
+  {
+    "name": "S235JR I-Beam 400x180x8.5",
+    "profile": "I-Beam",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 53.9
+  },
+  {
+    "name": "S235JR Channel 200x75x6",
+    "profile": "Channel",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 22.6
+  },
+  {
+    "name": "S235JR Channel 250x80x7",
+    "profile": "Channel",
+    "materialType": "Carbon Steel",
+    "grade": "S235JR",
+    "density": 7850,
+    "unitCost": 22,
+    "massPerMeter": 28.5
+  },
+  {
+    "name": "S355JR Plate 6mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S355JR",
+    "density": 7850,
+    "unitCost": 22,
+    "thickness": 6
+  },
+  {
+    "name": "S355JR Plate 25mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S355JR",
+    "density": 7850,
+    "unitCost": 22,
+    "thickness": 25
+  },
+  {
+    "name": "S355JR Plate 40mm",
+    "profile": "Plate",
+    "materialType": "Carbon Steel",
+    "grade": "S355JR",
+    "density": 7850,
+    "unitCost": 24,
+    "thickness": 40
+  }
+]

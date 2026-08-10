@@ -1,0 +1,62 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <h1 class="C_title">Dashboard</h1>
+        <forge-button label="New Quote" @click="goQuotes" />
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading quotes..." />
+    </div>
+
+    <template v-else>
+        <!-- Status counts -->
+        <div class="C_stats">
+            <div v-for="s in statusCards" :key="s.key" class="C_stat" @click="goQuotes">
+                <span class="C_stat_num">{{ s.value }}</span>
+                <span class="C_stat_label">{{ s.label }}</span>
+            </div>
+        </div>
+
+        <!-- Financial cards -->
+        <div class="C_cards">
+            <div v-for="c in finCards" :key="c.label" class="C_card">
+                <span class="C_card_label">{{ c.label }}</span>
+                <span class="C_card_value num" :class="c.valueCls">{{ c.value }}</span>
+                <span class="C_card_hint">{{ c.hint }}</span>
+            </div>
+        </div>
+
+        <!-- Recent quotes table -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Recent Quotes</h2>
+                <span class="C_view_all" @click="goQuotes">View all →</span>
+            </div>
+
+            <div v-if="!recentQuotes.length" class="C_empty">
+                <p>No quotes yet.</p>
+                <forge-button label="Create your first quote" @click="goQuotes" />
+            </div>
+
+            <table v-else class="C_table">
+                <thead>
+                    <tr>
+                        <th>Quote</th>
+                        <th>Customer</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="q in recentQuotes" :key="q.id" @click="openQuote(q.id)">
+                        <td class="C_strong">{{ q.name }}</td>
+                        <td>{{ q.data && q.data.customerName || '—' }}</td>
+                        <td><span class="status-pill" :class="q.status || 'draft'">{{ q.status || 'draft' }}</span></td>
+                        <td class="num">{{ fmtMoney(q.total_cost) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </template>
+</div>

@@ -1,0 +1,149 @@
+<div class="C_main">
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading quote..." />
+    </div>
+
+    <div v-else-if="error" class="C_error">
+        <p>{{ error }}</p>
+        <forge-button label="Back to Quotes" @click="goBack" />
+    </div>
+
+    <template v-else-if="quote">
+        <!-- Header -->
+        <div class="C_header_row">
+            <div>
+                <span class="C_back" @click="goBack">← Back to Quotes</span>
+                <h1 class="C_title">{{ quote.name }}</h1>
+                <div class="C_meta">
+                    <span class="status-pill" :class="status">{{ status }}</span>
+                    <span class="C_meta_item">Customer: {{ (quote.data && quote.data.customerName) || '—' }}</span>
+                    <span class="C_meta_item">Currency: {{ currency }}</span>
+                </div>
+            </div>
+            <div class="C_actions">
+                <forge-button label="Export PDF" @click="exportPdf" />
+            </div>
+        </div>
+
+        <!-- Status history -->
+        <div v-if="statusHistory.length" class="C_history">
+            <span v-for="(h, i) in statusHistory.slice().reverse().slice(0, 5)" :key="i" class="C_history_chip">
+                <span class="status-pill" :class="h.status">{{ h.status }}</span>
+                <span class="C_history_date">{{ h.date }}</span>
+            </span>
+        </div>
+
+        <!-- Tabs -->
+        <forge-tabs :tabs="tabs" :value="activeTab" @input="onTabSelect" />
+
+        <!-- Overview tab: cost breakdown -->
+        <div v-if="activeTab === 'overview'" class="C_tab_content">
+            <div class="C_summary_cards">
+                <div v-for="c in overviewCards" :key="c.label" class="C_card" :class="c.cls">
+                    <span class="C_card_label">{{ c.label }}</span>
+                    <span class="C_card_value num">{{ c.value }}</span>
+                </div>
+            </div>
+
+            <div class="C_section">
+                <div class="C_section_header"><h2>Cost Breakdown</h2></div>
+                <table class="C_table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th class="C_right">Material</th>
+                            <th class="C_right">Process</th>
+                            <th class="C_right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="e in entities" :key="e.id">
+                            <td class="C_strong">{{ e.name }}</td>
+                            <td>{{ e.type }}</td>
+                            <td>{{ e.quantity }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.material) }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.processTotal) }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.total) }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" class="C_right C_strong">Total</td>
+                            <td class="C_right num C_strong">{{ fmtMoney(totalCost) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+                <div v-if="!entities.length" class="C_empty">
+                    <p>No items on this quote yet.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOM tab: entity tree summary -->
+        <div v-if="activeTab === 'bom'" class="C_tab_content">
+            <div class="C_section">
+                <div class="C_section_header"><h2>Bill of Materials</h2></div>
+                <table class="C_table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th class="C_right">Unit Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="e in entities" :key="e.id">
+                            <td class="C_strong">{{ e.name }}</td>
+                            <td>{{ e.type }}</td>
+                            <td>{{ e.quantity }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.unitCost) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Process tab -->
+        <div v-if="activeTab === 'process'" class="C_tab_content">
+            <div class="C_summary_cards">
+                <div class="C_card">
+                    <span class="C_card_label">Total Process Hours</span>
+                    <span class="C_card_value num">{{ processHours }}</span>
+                </div>
+                <div class="C_card">
+                    <span class="C_card_label">Process Cost</span>
+                    <span class="C_card_value num">{{ fmtMoney(processTotal) }}</span>
+                </div>
+            </div>
+            <div class="C_section">
+                <div class="C_section_header"><h2>Per-Entity Process</h2></div>
+                <table class="C_table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="C_right">Welding</th>
+                            <th class="C_right">Machining</th>
+                            <th class="C_right">Process Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="e in entities" :key="e.id">
+                            <td class="C_strong">{{ e.name }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.welding) }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.machining) }}</td>
+                            <td class="C_right num">{{ fmtMoney(e.cost.processTotal) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <div v-else class="C_error">
+        <p>Quote not found.</p>
+        <forge-button label="Back to Quotes" @click="goBack" />
+    </div>
+</div>

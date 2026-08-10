@@ -1,0 +1,47 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Quotes</h1>
+            <p class="C_subtitle">Fabrication quotes and their cost rollups.</p>
+        </div>
+        <forge-button label="+ New Quote" @click="openNew" />
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div class="C_toolbar">
+        <div class="C_search">
+            <forge-search place_holder="Search quotes..." @onSearch="onSearch" />
+        </div>
+        <div class="C_filters">
+            <span
+                v-for="s in statuses"
+                :key="s"
+                class="C_filter_chip"
+                :class="{ 'C_active': statusFilter === s }"
+                @click="setStatus(s)"
+            >{{ s }}</span>
+            <span v-if="statusFilter" class="C_clear" @click="setStatus(statusFilter)">×</span>
+        </div>
+    </div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading quotes..." />
+    </div>
+
+    <div class="C_list">
+        <forge-list
+            v-if="!loading"
+            :fields="fields"
+            :value="rows"
+            :search="search"
+            @onFetch="onFetch"
+            @onSelect="onSelect"
+            @onSvg="onSvg"
+        />
+        <div v-if="!loading && !rows.length" class="C_empty">
+            <p>No quotes found.</p>
+            <forge-button label="Create your first quote" @click="openNew" />
+        </div>
+    </div>
+</div>

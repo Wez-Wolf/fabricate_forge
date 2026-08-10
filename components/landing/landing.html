@@ -1,0 +1,66 @@
+<div class="C_page">
+    <!-- Nav -->
+    <div class="C_nav">
+        <div class="C_nav_inner">
+            <div class="C_brand">
+                <forge-svg s_path="factory" class="C_logo" />
+                <span class="C_brand_name">Fabricate</span>
+                <span class="C_brand_badge">COSTING</span>
+            </div>
+            <div class="C_nav_actions">
+                <span class="C_nav_link" @click="goLogin">Sign in</span>
+                <forge-button label="Get Started" @click="goSignup" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="C_hero">
+        <div class="C_hero_inner">
+            <div class="C_hero_copy">
+                <span class="C_eyebrow">Fabrication Costing System</span>
+                <h1 class="C_hero_title">Price steel fabrication<br />with precision.</h1>
+                <p class="C_hero_sub">Quote, cost, and track fabrication projects — material takeoff, process hours, and margin in one place.</p>
+                <div class="C_hero_cta">
+                    <forge-button label="Start Free" @click="goSignup" />
+                    <span class="C_hero_alt" @click="goLogin">Already have an account? Sign in</span>
+                </div>
+            </div>
+            <div class="C_hero_media">
+                <!-- Technical drawing / steel structure image -->
+                <img class="C_hero_img" src="./assets/hero-steel.jpg" alt="Steel structure fabrication" />
+                <div class="C_hero_card">
+                    <span class="C_hero_card_label">Sample Quote</span>
+                    <span class="C_hero_card_value num">$5,348.72</span>
+                    <span class="C_hero_card_hint">Skid Frame · 4× Mounting Plate · welding 2h</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="C_features">
+        <div class="C_features_inner">
+            <div class="C_features_grid">
+                <div v-for="f in features" :key="f.title" class="C_feature">
+                    <div class="C_feature_icon">
+                        <forge-svg :s_path="f.icon" />
+                    </div>
+                    <h3 class="C_feature_title">{{ f.title }}</h3>
+                    <p class="C_feature_desc">{{ f.desc }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="C_cta">
+        <h2 class="C_cta_title">Ready to price your next job?</h2>
+        <p class="C_cta_sub">Create an account and build your first quote in minutes.</p>
+        <forge-button label="Get Started" @click="goSignup" />
+    </div>
+
+    <div class="C_footer">
+        <span>© 2026 Fabricate · Fabrication Costing System</span>
+    </div>
+</div>

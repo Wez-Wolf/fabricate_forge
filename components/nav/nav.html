@@ -1,0 +1,23 @@
+<div class="C_main">
+    <forge-nav ref="nav" :tabs="visibleTabs" :tab-url="tab_url" :project-name="projectName" :logo-path="logoPath">
+        <template slot="header">
+            <div class="C_header">
+                <div class="C_header_left" @click="onHome">
+                    <forge-svg v-if="logoPath" :s_path="logoPath" class="C_logo" />
+                    <span class="C_project_name">{{ projectName }}</span>
+                    <span class="C_badge">COSTING</span>
+                </div>
+                <div class="C_header_right">
+                    <div class="C_theme" @click="toggleDark" title="Toggle theme">
+                        <forge-svg :s_path="isDark ? 'sun' : 'moon'" />
+                    </div>
+                    <span v-if="userName" class="C_user_name">{{ userName }}</span>
+                    <span v-if="userRole" class="C_user_role">{{ userRole }}</span>
+                    <div class="C_logout" @click="onLogout" title="Logout">
+                        <forge-svg s_path="log-out" />
+                    </div>
+                </div>
+            </div>
+        </template>
+    </forge-nav>
+</div>

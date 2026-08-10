@@ -1,0 +1,43 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Library</h1>
+            <p class="C_subtitle">Material library — plates, sections, fasteners, fittings.</p>
+        </div>
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div class="C_toolbar">
+        <div class="C_search">
+            <forge-search place_holder="Search materials..." @onSearch="onSearch" />
+        </div>
+        <div class="C_filters">
+            <span
+                v-for="c in cats"
+                :key="c"
+                class="C_filter_chip"
+                :class="{ 'C_active': catFilter === c }"
+                @click="setCat(c)"
+            >{{ c }} <span class="C_count">{{ counts[c] || 0 }}</span></span>
+            <span v-if="catFilter" class="C_clear" @click="setCat(catFilter)">×</span>
+        </div>
+    </div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading library..." />
+    </div>
+
+    <div class="C_list">
+        <forge-list
+            v-if="!loading"
+            :fields="fields"
+            :value="rows"
+            :search="search"
+            @onFetch="onFetch"
+        />
+        <div v-if="!loading && !rows.length" class="C_empty">
+            <p>No materials found.</p>
+        </div>
+    </div>
+</div>

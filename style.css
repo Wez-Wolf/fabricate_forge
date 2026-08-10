@@ -1,0 +1,186 @@
+/* fabricate_forge style.css
+ * Brand-first + forge component token coverage.
+ * Desktop-focused industrial theme (mirrors the original app's "Minimal
+ * Professional Industrial" palette): neutral grays, blue (actions), green
+ * (success), orange (warning), red (danger).
+ *
+ * Structure follows the forge convention (skilled): dark-first :root +
+ * :root:not(.dark) light, then forge component tokens aliased to brand vars.
+ */
+body,html{margin:0;padding:0;overflow:hidden;
+    background:var(--bg);color:var(--text);
+    font-family:'Inter','-apple-system',sans-serif;font-size:clamp(14px,1.05vw,16px)}
+*,*::before,*::after{box-sizing:border-box}
+
+/* ── Brand tokens: dark (default — html starts class="dark") ── */
+:root{
+    --radius-sm:0.375rem;--radius-md:0.5rem;--radius-lg:0.75rem;--radius-xl:1rem;
+    --transition-fast:0.15s ease;--transition-normal:0.3s ease;
+    /* Type scale */
+    --fs-caption:0.75rem;--fs-small:0.8125rem;--fs-body:0.9375rem;
+    --fs-title:1.125rem;--fs-heading:1.25rem;--fs-display:1.75rem;
+    /* Spacing (base 4) */
+    --sp-1:0.25rem;--sp-2:0.5rem;--sp-3:0.75rem;--sp-4:1rem;
+    --sp-5:1.25rem;--sp-6:1.5rem;--sp-8:2rem;--sp-10:2.5rem;--sp-12:3rem;
+    /* Surfaces (slate dark) */
+    --bg:#0f172a;--surface:#1e293b;--surface-2:#334155;--surface-3:#475569;
+    --border:#475569;--border-hover:#64748b;
+    --text:#f8fafc;--text-dim:#cbd5e1;--text-muted:#94a3b8;
+    /* Brand blue */
+    --accent:#3b82f6;--accent-hover:#60a5fa;
+    --success:#10b981;--warning:#f59e0b;--error:#ef4444;--info:#06b6d4;
+    --text-on-color:#ffffff;
+    --secondary:#8b5cf6;
+    --error-rgb:239,68,68;
+    --hover-bg:rgba(59,130,246,0.08);
+    --shadow-md:0 4px 6px rgba(0,0,0,0.3);
+}
+/* ── Brand tokens: light ── */
+:root:not(.dark){
+    --bg:#f8fafc;--surface:#ffffff;--surface-2:#f1f5f9;--surface-3:#e2e8f0;
+    --border:#cbd5e1;--border-hover:#94a3b8;
+    --text:#1e293b;--text-dim:#64748b;--text-muted:#94a3b8;
+    --accent:#2563eb;--accent-hover:#3b82f6;
+    --success:#059669;--warning:#d97706;--error:#dc2626;--info:#0284c7;
+    --text-on-color:#ffffff;
+    --secondary:#7c3aed;
+    --shadow-md:0 4px 6px rgba(0,0,0,0.08);
+    --error-rgb:220,38,38;
+    --hover-bg:rgba(37,99,235,0.05);
+}
+
+/* ── Forge component tokens ─────────────────────────────
+   Comps in use: forge-button, forge-loader, forge-search, forge-nav,
+   forge-tabs, forge-menu, forge-list, forge-popup, forge-toast,
+   forge-form, auth login/signup.
+   Values reference the base vars above so both themes get consistent tokens. */
+:root{
+    /* generic color tokens */
+    --color-accent: var(--accent);
+    --color_primary: var(--accent);
+    --color-primary: var(--accent);
+    --color-surface-card: var(--surface);
+    --color-text-on-card: var(--text);
+    --color-text-secondary: var(--text-dim);
+    --color_text_secondary: var(--text-dim);
+    --border-color: var(--border);
+    --color-bg: var(--bg);
+    --color_text_light: var(--text);
+    --color_menu_background: var(--surface);
+    --color_menu_btn: var(--accent);
+    --form_input_background_color: var(--surface-2);
+    --form_input_border_color: var(--border);
+    --form_input_color: var(--text);
+
+    /* forge-toast */
+    --color-toast-bg: var(--surface);
+    --color-toast-border: var(--border);
+    --color-toast-text: var(--text);
+    --color-toast-error: var(--error);
+    --color-toast-success: var(--success);
+    --color-toast-warning: var(--warning);
+    --color-toast-info: var(--accent);
+
+    /* forge-button */
+    --forge-button-text: #ffffff;
+    --forge-button-bg: var(--accent);
+    --forge-button-hover-bg: var(--accent-hover);
+    --forge-button-disabled-bg: rgba(59, 130, 246, 0.4);
+
+    /* forge-form / forge-input */
+    --forge-form-input-bg: var(--surface);
+    --forge-form-input-border: var(--border);
+    --forge-form-input-text: var(--text);
+    --forge-form-input-border-radius: var(--radius-md);
+    --forge-form-input-min-height: 38px;
+    --forge-form-input-width: 100%;
+    --forge-form-input-readonly: var(--surface-2);
+    --forge-form-label-text: var(--text-dim);
+    --forge-form-submit-bg: var(--accent);
+    --forge-form-submit-text: #ffffff;
+    --forge-form-error-color: var(--error);
+    /* stray ref in shared form.css even when kanban unused — define it */
+    --forge-kanban-card-bg: var(--surface);
+    /* forge-input (standalone) — chains to legacy form_input_* */
+    --forge-input-bg: var(--surface);
+    --forge-input-border: var(--border);
+    --forge-input-text: var(--text);
+    --forge-input-label: var(--text-dim);
+    --forge-input-error: var(--error);
+    --form_input_readonly_color: var(--text-muted);
+    --form_label_color: var(--text-dim);
+
+    /* forge-popup */
+    --forge-popup-bg: var(--surface);
+    --forge-popup-heading-bg: var(--surface-2);
+    --forge-popup-accent: var(--accent);
+    --forge-popup-text-light: var(--text);
+
+    /* forge-list */
+    --forge-list-edit-add-text: var(--accent);
+    /* list table surfaces — light-theme friendly (forge-list defaults assume dark) */
+    --forge-list-label-size: 0.875rem;
+    --forge-list-label-weight: 500;
+    --forge-list-header-text: var(--text-dim);
+    --forge-list-header-bg: var(--surface-2);
+    --forge-list-row-text: var(--text);
+    /* zebra striping — breaks up the white-on-white */
+    --forge-list-row-bg: transparent;
+    --forge-list-row-bg-alt: var(--surface-2);
+    --forge-list-row-hover: var(--hover-bg);
+    --forge-list-count-size: 0.8rem;
+    --forge-list-count-text: var(--text-muted);
+    --forge-list-count-bg: transparent;
+    --forge-list-selected-bg: var(--hover-bg);
+    --forge-list-selected-text: var(--text);
+    /* data-table baseline (borders + cell padding via tokens) */
+    --forge-list-row-border: 1px solid var(--border);
+    --forge-list-cell-padding: 0.625rem 0.75rem;
+
+    /* generic color tokens (menu, search, popup, list) */
+    --color_accent: var(--accent);
+    --color-text: var(--text);
+    --color-error: var(--error);
+    --color_error: var(--error);
+    --color_text_dark: var(--text);
+    --color-surface-input: var(--surface-2);
+    --color-surface-card-light: var(--surface);
+    --color-text-on-card-list: var(--surface);
+
+    /* forge-search */
+    --forge-search-height: 38px;
+
+    /* forge-tabs */
+    --tabs_active_border_width: 3px;
+    --tabs_button_border_radius: 0;
+    --tabs_button_padding: 0.8rem 0.5rem;
+    --tabs_font_weight: 600;
+    --tabs_gap: 0.5rem;
+    --tabs_transition: all 0.2s ease;
+
+    /* forge-loader */
+    --forge-loader-color: var(--accent);
+    --forge-loader-track: var(--surface-3);
+    --forge-loader-text: var(--text-dim);
+
+    /* forge-auth (login/signup) */
+    --forge-auth-canvas-bg: var(--bg);
+    --forge-auth-card-bg: var(--surface);
+    --forge-auth-card-border: var(--border);
+    --forge-auth-title-color: var(--text);
+    --forge-auth-label-color: var(--text-dim);
+    --forge-auth-input-bg: var(--surface-2);
+    --forge-auth-input-border: var(--border);
+    --forge-auth-input-text: var(--text);
+    --forge-auth-error-color: var(--error);
+    --forge-auth-link-color: var(--accent);
+    --forge-auth-link-hover-opacity: 1;
+}
+
+
+.main {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+

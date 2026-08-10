@@ -1,0 +1,150 @@
+[
+  {
+    "name": "M12 x 40 Hex Bolt",
+    "type": "bolt",
+    "grade": "8.8",
+    "material": "Carbon Steel",
+    "dimensions": "M12 x 40",
+    "thread": "M12",
+    "unitCost": 0.85,
+    "mass": 0.117,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4014"
+  },
+  {
+    "name": "M16 x 50 Hex Bolt",
+    "type": "bolt",
+    "grade": "8.8",
+    "material": "Carbon Steel",
+    "dimensions": "M16 x 50",
+    "thread": "M16",
+    "unitCost": 1.5,
+    "mass": 0.317,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4014"
+  },
+  {
+    "name": "M20 x 60 Hex Bolt",
+    "type": "bolt",
+    "grade": "8.8",
+    "material": "Carbon Steel",
+    "dimensions": "M20 x 60",
+    "thread": "M20",
+    "unitCost": 2.5,
+    "mass": 0.616,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4014"
+  },
+  {
+    "name": "M24 x 80 Hex Bolt",
+    "type": "bolt",
+    "grade": "8.8",
+    "material": "Carbon Steel",
+    "dimensions": "M24 x 80",
+    "thread": "M24",
+    "unitCost": 4,
+    "mass": 1.21,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4014"
+  },
+  {
+    "name": "M12 Hex Nut",
+    "type": "nut",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M12",
+    "thread": "M12",
+    "unitCost": 0.25,
+    "mass": 0.026,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4032"
+  },
+  {
+    "name": "M16 Hex Nut",
+    "type": "nut",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M16",
+    "thread": "M16",
+    "unitCost": 0.45,
+    "mass": 0.062,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4032"
+  },
+  {
+    "name": "M20 Hex Nut",
+    "type": "nut",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M20",
+    "thread": "M20",
+    "unitCost": 0.75,
+    "mass": 0.115,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4032"
+  },
+  {
+    "name": "M24 Hex Nut",
+    "type": "nut",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M24",
+    "thread": "M24",
+    "unitCost": 1.2,
+    "mass": 0.202,
+    "finish": "Zinc Plated",
+    "standard": "ISO 4032"
+  },
+  {
+    "name": "M12 Washer",
+    "type": "washer",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M12",
+    "unitCost": 0.05,
+    "mass": 0.008,
+    "finish": "Zinc Plated"
+  },
+  {
+    "name": "M16 Washer",
+    "type": "washer",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M16",
+    "unitCost": 0.08,
+    "mass": 0.015,
+    "finish": "Zinc Plated"
+  },
+  {
+    "name": "M20 Washer",
+    "type": "washer",
+    "grade": "8",
+    "material": "Carbon Steel",
+    "dimensions": "M20",
+    "unitCost": 0.12,
+    "mass": 0.025,
+    "finish": "Zinc Plated"
+  },
+  {
+    "name": "M12 x 40 Socket Head Screw",
+    "type": "screw",
+    "grade": "12.9",
+    "material": "Carbon Steel",
+    "dimensions": "M12 x 40",
+    "thread": "M12",
+    "unitCost": 1.2,
+    "mass": 0.125,
+    "finish": "Black Oxide"
+  },
+  {
+    "name": "M16 x 50 Socket Head Screw",
+    "type": "screw",
+    "grade": "12.9",
+    "material": "Carbon Steel",
+    "dimensions": "M16 x 50",
+    "thread": "M16",
+    "unitCost": 2,
+    "mass": 0.34,
+    "finish": "Black Oxide"
+  }
+]
