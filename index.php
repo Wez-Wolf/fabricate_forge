@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <base href="<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>/" />
     <script>window.FORGE_COMP_BASE = '<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>/';</script>
-    <link rel="stylesheet" href="<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>/style.css" type="text/css">
+    <link rel="stylesheet" href="<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>/style.css?v=<?= filemtime(__DIR__ . '/style.css') ?>" type="text/css">
     <link rel="icon" href="<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>/favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

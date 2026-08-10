@@ -99,6 +99,8 @@ body,html{margin:0;padding:0;overflow:hidden;
     --forge-form-submit-bg: var(--accent);
     --forge-form-submit-text: #ffffff;
     --forge-form-error-color: var(--error);
+    /* required-field warning text (the "Required Field" label) */
+    --forge-form-required-text: var(--error);
     /* stray ref in shared form.css even when kanban unused — define it */
     --forge-kanban-card-bg: var(--surface);
     /* forge-input (standalone) — chains to legacy form_input_* */
@@ -183,4 +185,3 @@ body,html{margin:0;padding:0;overflow:hidden;
   flex-direction: column;
   height: 100dvh;
 }
-
