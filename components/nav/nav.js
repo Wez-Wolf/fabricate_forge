@@ -58,6 +58,14 @@ var comp = {
             MAIN.processClear = function() { ROUTER.navigate('/login'); };
         }
         this.resolveRoute();
+        // SPA clicks on quote rows navigate /nav/quotes -> /nav/quotes/<id>;
+        // processPath only forwards tab_url = parts[1] ('quotes' in both cases),
+        // so the tab_url watcher never fires for the detail segment. Listen on
+        // the root bus (MAIN emits onPathChange on every popstate) and re-run
+        // the deferred route resolution.
+        var self = this;
+        this._onPathChange = function() { self.resolveRoute(); };
+        this.$root.$on('onPathChange', this._onPathChange);
     },
     watch: {
         // Same-route navigation / browser back-forward with a new ?user_id=
@@ -68,6 +76,7 @@ var comp = {
     },
     beforeDestroy() {
         this.$root.$off('user-updated');
+        if (this._onPathChange) this.$root.$off('onPathChange', this._onPathChange);
     },
     computed: {
         // Admin tab only for admin users
@@ -108,6 +117,12 @@ var comp = {
                     if (self.$refs.nav) {
                         self.$refs.nav.setPage('quoteview', { tab_url: parts.join('/') });
                     }
+                } else if (self.$refs.nav && self.$refs.nav.pageComp === 'quoteview') {
+                    // Left the quote detail (back/forward/tab click) — restore
+                    // the tab page so the detail doesn't linger on the list URL.
+                    var tag = parts[0] || self.tab_url || 'dashboard';
+                    var tab = self.tabs.find(function (t) { return t.tag === tag; });
+                    self.$refs.nav.setPage(tab ? tab.comp : tag, { tab_url: parts.join('/') });
                 }
             }, 300);
         },
