@@ -1,0 +1,22 @@
+<div class="C_main">
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading prefabs..." />
+    </div>
+    <div v-else class="C_list">
+        <div
+            v-for="p in prefabs"
+            :key="p.id"
+            class="C_row"
+            :class="{ 'C_selectable': is_select }"
+            @click="pick(p)"
+        >
+            <div class="C_row_main">
+                <span class="C_name">{{ p.name }}</span>
+                <span class="C_meta">{{ (p.template_data && (p.template_data.items || []).length) || 0 }} items · {{ (p.template_data && (p.template_data.processes || []).length) || 0 }} processes</span>
+            </div>
+        </div>
+        <div v-if="!prefabs.length && !loading" class="C_empty">
+            <p>No prefabs available.</p>
+        </div>
+    </div>
+</div>

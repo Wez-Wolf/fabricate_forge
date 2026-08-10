@@ -355,6 +355,38 @@ var comp = {
                 },
             });
         },
+        openPrefabPicker() {
+            var self = this;
+            POPUP.show('Add from Prefab', {
+                comp: 'prefabpicker',
+                props: { is_select: true },
+                class_body: 'popup_body_lg',
+                events: {
+                    onSelect: function (p) {
+                        self.instantiatePrefab(p);
+                        POPUP.close();
+                    },
+                },
+            });
+        },
+        async instantiatePrefab(prefab) {
+            try {
+                var res = await WEB.api('./api/prefabs.php', {
+                    action: 'instantiate',
+                    input: { prefab_id: prefab.id, quote_id: this.quoteId },
+                });
+                var data = (res && res.data) || res || {};
+                if (data.root_entity_id) {
+                    TOAST.show('Prefab added — ' + (data.child_ids || []).length + ' items', 'success');
+                    this.load();
+                    this.loadTree();
+                } else {
+                    TOAST.show(data.error || 'Failed to instantiate', 'error');
+                }
+            } catch (e) {
+                TOAST.show(e.message || 'Failed to instantiate prefab', 'error');
+            }
+        },
         openBatchAdd() {
             var self = this;
             POPUP.show('Add Items', {
@@ -473,60 +505,19 @@ var comp = {
                 if (this.entities[i].id === node.id) { entity = this.entities[i]; break; }
             }
             if (!entity) return;
-            this.loadMaterials();
 
             var mat = this.findComponent(entity, 'material');
-            var matData = (mat && mat.data) || {};
             var proc = this.findComponent(entity, 'process');
-            var procData = (proc && proc.data) || {};
-
-            // process fields: number input per trade that already has hours
-            var procFields = {};
-            var self2 = this;
-            this.processTrades.forEach(function (t) {
-                if (procData[t]) { procFields[t] = { label: t, type: 'number', step: 0.5 }; }
-            });
-            if (!Object.keys(procFields).length) {
-                procFields.welding = { label: 'Welding (h)', type: 'number', step: 0.5 };
-                procFields.machining = { label: 'Machining (h)', type: 'number', step: 0.5 };
-                procFields.assembly = { label: 'Assembly (h)', type: 'number', step: 0.5 };
-            }
-
-            var fields = {
-                name: { label: 'Item Name', required: true },
-                type: {
-                    label: 'Type', type: 'option',
-                    options: { part: 'Part', assembly: 'Assembly', fastener: 'Fastener' },
-                },
-                quantity: { label: 'Quantity', type: 'number' },
-                material_id: { label: 'Material', type: 'option', options: self.materialOptions() },
-                length: { label: 'Length (mm)', type: 'number' },
-                width: { label: 'Width (mm)', type: 'number' },
-                thickness: { label: 'Thickness (mm)', type: 'number', step: 0.5 },
-            };
-            Object.keys(procFields).forEach(function (k) { fields[k] = procFields[k]; });
-
-            var form = {
-                name: entity.name,
-                type: entity.type || 'part',
-                quantity: parseInt(entity.quantity, 10) || 1,
-                material_id: matData.materialLibraryId || '',
-                length: matData.length || '',
-                width: matData.width || '',
-                thickness: matData.thickness || '',
-            };
-            this.processTrades.forEach(function (t) { if (procData[t]) form[t] = parseFloat(procData[t]); });
 
             POPUP.show('Edit Item', {
-                comp: 'forge-form',
-                props: {
-                    fields: fields,
-                    button_label: 'Save Item',
-                    value: form,
-                },
+                comp: 'edititem',
+                props: { entity: entity, trades: this.processTrades },
                 events: {
                     submit: function (f) {
                         self.saveEntity(entity, mat, proc, f);
+                        POPUP.close();
+                    },
+                    cancel: function () {
                         POPUP.close();
                     },
                 },
@@ -563,7 +554,8 @@ var comp = {
                 var procData = {};
                 var self = this;
                 this.processTrades.forEach(function (t) {
-                    if (form[t]) procData[t] = parseFloat(form[t]);
+                    if (form.hours && form.hours[t]) procData[t] = parseFloat(form.hours[t]);
+                    else if (form[t]) procData[t] = parseFloat(form[t]); // legacy flat shape
                 });
                 if (proc) {
                     await WEB.api('./api/components.php', { action: 'update', input: { id: proc.id, data: procData } });

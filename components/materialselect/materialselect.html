@@ -1,0 +1,11 @@
+<div class="C_main">
+    <forge-select
+        :value="value"
+        @input="$emit('input', $event)"
+        :heading="popupHeading"
+        :sub="popupSub"
+        :name_template="materialNameTemplate"
+        :default_txt="default_txt"
+        :readonly="readonly"
+    />
+</div>

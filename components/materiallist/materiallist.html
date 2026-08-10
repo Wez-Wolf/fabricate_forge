@@ -1,0 +1,40 @@
+<div class="C_main">
+    <!-- Toolbar: search + category chips -->
+    <div class="C_toolbar">
+        <forge-search class="C_search" place_holder="Search materials..." @onSearch="onSearch" />
+    </div>
+    <div class="C_chips">
+        <span
+            v-for="c in cats"
+            :key="c"
+            class="C_chip"
+            :class="{ 'C_active': cat === c }"
+            @click="setCat(c)"
+        >{{ c }}</span>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading materials..." />
+    </div>
+
+    <!-- List -->
+    <div v-else class="C_list">
+        <div
+            v-for="r in rows"
+            :key="r.id"
+            class="C_row"
+            :class="{ 'C_selectable': is_select }"
+            @click="pick(r)"
+        >
+            <div class="C_row_main">
+                <span class="C_name">{{ r.label }}</span>
+                <span class="C_meta">{{ r.meta }}</span>
+            </div>
+            <span class="C_cost">{{ r.unit_cost ? '$' + r.unit_cost + '/kg' : '' }}</span>
+        </div>
+        <div v-if="!rows.length && !loading" class="C_empty">
+            <p>No materials found.</p>
+        </div>
+    </div>
+</div>

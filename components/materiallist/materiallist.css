@@ -1,0 +1,115 @@
+/* components/materiallist — searchable material list (POPUP picker) */
+
+.C_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 24rem;
+    max-width: 32rem;
+}
+
+.C_toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.C_toolbar .forge-search_main {
+    flex: 1;
+}
+
+.C_chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.C_chip {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+
+.C_chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.C_chip.C_active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-on-color);
+}
+
+.C_loading {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+/* List rows */
+.C_list {
+    display: flex;
+    flex-direction: column;
+    max-height: 18rem;
+    overflow-y: auto;
+}
+
+.C_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0.375rem;
+}
+
+.C_row:last-child {
+    border-bottom: none;
+}
+
+.C_selectable {
+    cursor: pointer;
+}
+
+.C_selectable:hover {
+    background: var(--hover-bg);
+}
+
+.C_row_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.C_name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.C_meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.C_cost {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.C_empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}

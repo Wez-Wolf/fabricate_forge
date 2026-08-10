@@ -1,0 +1,54 @@
+<div class="C_main">
+    <div class="C_field">
+        <label class="C_label">Item Name <span class="C_req">*</span></label>
+        <input v-model="form.name" type="text" class="C_input" placeholder="e.g. Base Plate" />
+    </div>
+
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Type</label>
+            <select v-model="form.type" class="C_input">
+                <option value="part">Part</option>
+                <option value="assembly">Assembly</option>
+                <option value="fastener">Fastener</option>
+            </select>
+        </div>
+        <div class="C_field">
+            <label class="C_label">Quantity</label>
+            <input v-model.number="form.quantity" type="number" min="1" class="C_input" />
+        </div>
+    </div>
+
+    <div class="C_field">
+        <label class="C_label">Material</label>
+        <materialselect v-model="form.material_id" @input="onMaterialPick" />
+    </div>
+
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Length (mm)</label>
+            <input v-model="form.length" type="number" step="0.1" class="C_input" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Width (mm)</label>
+            <input v-model="form.width" type="number" step="0.1" class="C_input" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Thickness (mm)</label>
+            <input v-model="form.thickness" type="number" step="0.1" class="C_input" />
+        </div>
+    </div>
+
+    <div class="C_section_label">Process Hours</div>
+    <div class="C_hours_grid">
+        <div v-for="t in trades" :key="t" class="C_field">
+            <label class="C_label">{{ tradeLabel(t) }}</label>
+            <input v-model="form.hours[t]" type="number" step="0.5" min="0" class="C_input" />
+        </div>
+    </div>
+
+    <div class="C_actions">
+        <forge-button label="Save Item" @click="submit" />
+        <span class="C_cancel" @click="cancel">Cancel</span>
+    </div>
+</div>

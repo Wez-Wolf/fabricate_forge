@@ -1,0 +1,68 @@
+/* components/prefabpicker — prefab template picker (POPUP body) */
+
+.C_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 24rem;
+    max-width: 30rem;
+}
+
+.C_loading {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.C_list {
+    display: flex;
+    flex-direction: column;
+    max-height: 20rem;
+    overflow-y: auto;
+}
+
+.C_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0.375rem;
+}
+
+.C_row:last-child {
+    border-bottom: none;
+}
+
+.C_selectable {
+    cursor: pointer;
+}
+
+.C_selectable:hover {
+    background: var(--hover-bg);
+}
+
+.C_row_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.C_name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.C_meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.C_empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
