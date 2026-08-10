@@ -48,6 +48,10 @@ tree:
       - dashboard.css
       - dashboard.html
       - dashboard.js
+    - edititem/
+      - edititem.css
+      - edititem.html
+      - edititem.js
     - forgot/
       - forgot.css
       - forgot.html
@@ -60,6 +64,14 @@ tree:
       - library.css
       - library.html
       - library.js
+    - materiallist/
+      - materiallist.css
+      - materiallist.html
+      - materiallist.js
+    - materialselect/
+      - materialselect.css
+      - materialselect.html
+      - materialselect.js
     - nav/
       - nav.css
       - nav.html
@@ -68,6 +80,10 @@ tree:
       - orders.css
       - orders.html
       - orders.js
+    - prefabpicker/
+      - prefabpicker.css
+      - prefabpicker.html
+      - prefabpicker.js
     - prefabs/
       - prefabs.css
       - prefabs.html
@@ -144,8 +160,8 @@ external_deps:
 file_counts:
   php: 30
   vue: 0
-  js/ts: 22
-  styles: 23
+  js/ts: 26
+  styles: 27
   docs: 3
 
 symbols:

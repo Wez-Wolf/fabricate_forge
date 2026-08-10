@@ -25,9 +25,78 @@
         </div>
     </div>
 
+    <!-- Margin summary -->
+    <div class="C_cards">
+        <div class="C_card">
+            <span class="C_card_label">Avg Margin</span>
+            <span class="C_card_value num">{{ margin.avgMarginPercent != null ? margin.avgMarginPercent + '%' : '—' }}</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Quote Value</span>
+            <span class="C_card_value num">{{ fmtMoney(margin.totalQuoteValue) }}</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Est. Margin</span>
+            <span class="C_card_value num C_green">{{ fmtMoney(margin.totalEstimatedMargin) }}</span>
+            <span class="C_card_hint">{{ margin.effectiveMarginRate }}% effective</span>
+        </div>
+    </div>
+
     <div v-if="loading" class="C_loading">
         <forge-loader variant="dots" label="Loading reports..." />
     </div>
+
+    <template v-else>
+        <!-- Cost by client -->
+        <div v-if="byClient.length" class="C_section">
+            <div class="C_section_header"><h2>Cost by Client</h2></div>
+            <table class="C_table">
+                <thead><tr><th>Client</th><th class="C_right">Quotes</th><th class="C_right">Total</th></tr></thead>
+                <tbody>
+                    <tr v-for="c in byClient" :key="c.clientName">
+                        <td class="C_strong">{{ c.clientName }}</td>
+                        <td class="C_right num">{{ c.count }}</td>
+                        <td class="C_right num">{{ fmtMoney(c.total) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Monthly summary -->
+        <div v-if="monthly.length" class="C_section">
+            <div class="C_section_header"><h2>Monthly Summary</h2></div>
+            <table class="C_table">
+                <thead><tr><th>Month</th><th class="C_right">Quotes</th><th class="C_right">Total</th></tr></thead>
+                <tbody>
+                    <tr v-for="m in monthly" :key="m.month">
+                        <td class="C_strong">{{ m.month }}</td>
+                        <td class="C_right num">{{ m.count }}</td>
+                        <td class="C_right num">{{ fmtMoney(m.total) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Cost by trade -->
+        <div v-if="byTrade.trades && byTrade.trades.length" class="C_section">
+            <div class="C_section_header"><h2>Cost by Trade</h2></div>
+            <table class="C_table">
+                <thead><tr><th>Trade</th><th class="C_right">Hours</th><th class="C_right">Cost</th></tr></thead>
+                <tbody>
+                    <tr v-for="t in byTrade.trades" :key="t.name">
+                        <td class="C_strong">{{ t.name }}</td>
+                        <td class="C_right num">{{ t.hours }}h</td>
+                        <td class="C_right num">{{ fmtMoney(t.cost) }}</td>
+                    </tr>
+                    <tr class="C_tfoot">
+                        <td class="C_strong">Total</td>
+                        <td></td>
+                        <td class="C_right num C_strong">{{ fmtMoney(byTrade.total) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </template>
 
     <div class="C_list">
         <forge-list

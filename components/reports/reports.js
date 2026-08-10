@@ -9,6 +9,10 @@ var comp = {
             quotes: [],
             loading: false,
             error: '',
+            margin: { avgMarginPercent: null, totalQuoteValue: 0, totalEstimatedMargin: 0, effectiveMarginRate: 0, quoteCount: 0 },
+            byClient: [],
+            monthly: [],
+            byTrade: { trades: [], total: 0 },
             fields: [
                 { label: 'Quote', type: 'function', func: function (row) { return '<span class="C_link">' + esc(row[0]) + '</span>'; } },
                 { label: 'Customer', type: 'function', func: function (row) { return esc(row[1]); } },
@@ -52,11 +56,28 @@ var comp = {
                 var res = await WEB.api('./api/systems.php', { action: 'list_quotes', input: { limit: 200 } });
                 this.quotes = (res && res.data) || res || [];
                 this.rebuild();
+                this.loadAnalytics();
             } catch (e) {
                 this.error = e.message || 'Failed to load reports';
             } finally {
                 this.loading = false;
             }
+        },
+        async loadAnalytics() {
+            try {
+                var self = this;
+                var calls = [
+                    WEB.api('./api/reports.php', { action: 'margin_summary', input: {} }),
+                    WEB.api('./api/reports.php', { action: 'cost_by_client', input: {} }),
+                    WEB.api('./api/reports.php', { action: 'monthly_summary', input: {} }),
+                    WEB.api('./api/reports.php', { action: 'cost_by_trade', input: {} }),
+                ];
+                var results = await Promise.all(calls);
+                this.margin = (results[0] && results[0].data) || results[0] || this.margin;
+                this.byClient = (results[1] && results[1].data) || results[1] || [];
+                this.monthly = (results[2] && results[2].data) || results[2] || [];
+                this.byTrade = (results[3] && results[3].data) || results[3] || { trades: [], total: 0 };
+            } catch (e) { /* reports are best-effort */ }
         },
         rebuild() {
             var self = this;

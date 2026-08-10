@@ -263,6 +263,11 @@ Create a `api/` directory with these files:
 - UI: components/{tools,orders,procurement,production,prefabs}/ — nav tabs added (Tools/Prefabs/Orders/Procurement/Production)
 - Phase gate: `./tests/run-phase.sh phase8` → 67/67 live
 
+**✅ Done (Reports & Analytics — Phase 10):**
+- `api/reports.php` — cost_by_client (grouped + sorted), quote_funnel, monthly_summary, cost_by_trade (hours + priced cost from cost engine), margin_summary (30% default → 23.1% effective)
+- UI: reports page gains margin cards + Cost by Client / Monthly / Cost by Trade tables; quoteview gains **Import BOM** (Excel-style rows → item-number hierarchy + material match + recalc)
+- Phase gate: `./tests/run-phase.sh phase10` → 39/39 live
+
 **Not needed (covered by existing endpoints):**
 - `api/comp-enrich.php` — enrichment is inlined in cost.php (library lookup during mass calc)
 - `api/overhead.php` — overhead is a field in cost options (consumables/services/paint/transport)
@@ -606,6 +611,8 @@ The existing `imports/ui/main.css` will be migrated to the Forge design system's
 | 6. Support | auth / user / admin / boms | `tests/phases/phase6.sh` | login, prefs, company settings, BOM import round-trip |
 | 7. Seeded Library | global material_library (102 rows) | `tests/phases/phase7.sh` | seeded data present, owner-scoped, searchable, matchable, cost engine uses it |
 | 8. Business Modules | tools / orders / procurement / production / prefabs | `tests/phases/phase8.sh` | calc math exact, order/PO status transitions enforced, variance auto-calc, prefab instantiate builds ECS tree + recalc |
+| 9. Full-port Extras | tank/pipe tools, forgot/reset password | `tests/phases/phase9.sh` | tank/pipe takeoff math exact; token lifecycle (single-use, expiry, no enumeration) |
+| 10. Reports & Analytics | reports.php (cost_by_client / funnel / monthly / trade / margin) | `tests/phases/phase10.sh` | grouped totals exact, trade hours×rates priced, margin math (30% → 23.1% effective) |
 
 **Module test contract (every phase):**
 

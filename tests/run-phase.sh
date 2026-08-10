@@ -15,6 +15,8 @@
 #   phase6  Support (auth / user / admin / boms)
 #   phase7  Seeded library (material_library, 102 rows)
 #   phase8  Business modules (tools / orders / procurement / production / prefabs)
+#   phase9  Full-port extras (tank/pipe tools + forgot/reset password)
+#   phase10 Reports & analytics (cost by client / funnel / monthly / trade / margin)
 #
 # Each phase test:
 #   1. Logs in as the dedicated test user (forge auth → auth_id)

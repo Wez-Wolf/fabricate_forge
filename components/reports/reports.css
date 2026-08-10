@@ -185,3 +185,54 @@
 @media (max-width: 768px) {
     .C_cards { grid-template-columns: 1fr; }
 }
+
+/* ── Analytics sections ── */
+
+.C_section {
+    background: var(--bg-card, var(--bg));
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+
+.C_section_header h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+    color: var(--text);
+}
+
+.C_table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.C_table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    background: var(--surface-2, rgba(128,128,128,0.06));
+    padding: 0.6rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.C_table td {
+    padding: 0.7rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+.C_table tbody tr:last-child td { border-bottom: none; }
+
+.C_tfoot td {
+    border-top: 2px solid var(--border-color);
+    font-weight: 600;
+}
+
+.C_strong { font-weight: 600; }
+.C_right { text-align: right; }
+.num { font-variant-numeric: tabular-nums; }
+.C_green { color: var(--success, #059669); }

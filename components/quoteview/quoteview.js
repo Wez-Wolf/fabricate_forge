@@ -435,6 +435,75 @@ var comp = {
                 TOAST.show(e.message || 'Failed to add item', 'error');
             }
         },
+        // ── BOM import (Excel-style rows → hierarchy + material match) ──
+        openBomImport() {
+            var self = this;
+            POPUP.show('Import BOM', {
+                comp: 'forge-form',
+                props: {
+                    fields: {
+                        rows: {
+                            label: 'BOM Rows',
+                            type: 'textarea',
+                            rows: 12,
+                            placeholder: 'One line per item — paste from Excel\n\nitem_number, description, material, quantity, length, width, thickness\n\n1, Skid Frame, , 1\n1.1, Mounting Plate, A36, 4, 1200, 400, 10\n1.1.1, M12 Bolt, bolt, 16',
+                        },
+                    },
+                    button_label: 'Import',
+                },
+                events: {
+                    submit: function (form) {
+                        self.doBomImport(form.rows);
+                        POPUP.close();
+                    },
+                },
+            });
+        },
+        // Parse Excel-style rows into boms.php import payload
+        parseBomRows(text) {
+            var rows = [];
+            var lines = String(text || '').split(/\r?\n/);
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (!line || line.charAt(0) === '#') continue;
+                var parts = line.split(/[\t;,]/).map(function (s) { return s.trim(); });
+                var itemNumber = parts[0];
+                var desc = parts[1];
+                if (!itemNumber && !desc) continue;
+                var row = { item_number: itemNumber, description: desc || 'Item' };
+                if (parts[2]) row.material = parts[2];
+                if (parts[3]) row.quantity = parseInt(parts[3], 10) || 1;
+                if (parts[4]) row.length = parseFloat(parts[4]);
+                if (parts[5]) row.width = parseFloat(parts[5]);
+                if (parts[6]) row.thickness = parseFloat(parts[6]);
+                rows.push(row);
+            }
+            return rows;
+        },
+        async doBomImport(text) {
+            var rows = this.parseBomRows(text);
+            if (!rows.length) {
+                TOAST.show('No valid rows to import', 'error');
+                return;
+            }
+            try {
+                var res = await WEB.api('./api/boms.php', {
+                    action: 'import',
+                    input: { quote_id: this.quoteId, rows: rows },
+                });
+                var data = (res && res.data) || res || {};
+                if (data.error) throw new Error(data.error);
+                TOAST.show(data.imported + ' items imported (hierarchy + materials matched)', 'success');
+                await WEB.api('./api/systems.php', {
+                    action: 'recalculate_quote',
+                    input: { quote_id: this.quoteId },
+                });
+                this.load();
+                this.loadTree();
+            } catch (e) {
+                TOAST.show(e.message || 'BOM import failed', 'error');
+            }
+        },
         // ── Entity tree ──────────────────────────────────
         async loadTree() {
             if (!this.quoteId) return;
