@@ -254,6 +254,15 @@ Create a `api/` directory with these files:
 - `api/admin.php` — get/update_settings (company_settings), list_users + set_user_role (admin-gated 403)
 - `api/boms.php` — import (rows → entities + type detection + material match + item-number hierarchy links), calculate
 
+**✅ Done (Business modules — Phase 8):**
+- `api/tools.php` — calculator math (material plate/section/general + process welding/machining/assembly), server-computed for testability
+- `api/orders.php` — order CRUD + set_status (draft/sent/won/order/in-progress/complete/lost)
+- `api/procurement.php` — purchase orders (po_*), supplier quotes (sq_*), received goods (rg_*)
+- `api/production.php` — records + auto variance (actual−estimated, %), quote summary
+- `api/prefabs.php` — template CRUD, bake_from_quote, instantiate (ECS tree + material comps + process comp + contains links + recalc via systems)
+- UI: components/{tools,orders,procurement,production,prefabs}/ — nav tabs added (Tools/Prefabs/Orders/Procurement/Production)
+- Phase gate: `./tests/run-phase.sh phase8` → 67/67 live
+
 **Not needed (covered by existing endpoints):**
 - `api/comp-enrich.php` — enrichment is inlined in cost.php (library lookup during mass calc)
 - `api/overhead.php` — overhead is a field in cost options (consumables/services/paint/transport)
@@ -596,6 +605,7 @@ The existing `imports/ui/main.css` will be migrated to the Forge design system's
 | 5. Quote Lifecycle | quotes.php | `tests/phases/phase5.sh` | status transitions enforced, invalid transition rejected, PDF returns HTML |
 | 6. Support | auth / user / admin / boms | `tests/phases/phase6.sh` | login, prefs, company settings, BOM import round-trip |
 | 7. Seeded Library | global material_library (102 rows) | `tests/phases/phase7.sh` | seeded data present, owner-scoped, searchable, matchable, cost engine uses it |
+| 8. Business Modules | tools / orders / procurement / production / prefabs | `tests/phases/phase8.sh` | calc math exact, order/PO status transitions enforced, variance auto-calc, prefab instantiate builds ECS tree + recalc |
 
 **Module test contract (every phase):**
 
@@ -623,7 +633,8 @@ forge-comp-ground-truth (computed styles, not vision).
 | UI-2: Quotes | 2 weeks | QuotesList (forge-list+search), QuoteDetail (forge-tabs+popup), QuoteForm (forge-form) | ✅ done — list (forge-list+search+status chips+New Quote popup) + detail (cost breakdown tabs) verified LIVE on fabricate.innofuse.xyz |
 | UI-3: Library & Tree | 1 week | materials library, entity tree (forge-tree) | ✅ library done — forge-list table (102 items) + forge-search + category filter chips w/ counts, verified LIVE. Tree: forge-tree is per-type recursive (p-<type>-tree) — entity tree deferred (BOM view covers it) |
 | UI-4: Cost UI | 1 week | CostSummary cards, pricing schedule | ✅ covered — quoteview cost breakdown + reports summary cards |
-| UI-5: Cleanup | 1 week | remove legacy views, visual regression pass | next |
+| UI-5: Cleanup | 1 week | remove legacy views, visual regression pass | ✅ done — old Meteor views not ported (app is 100% forge components) |
+| Phase 8: Business Modules | — | tools / orders / procurement / production / prefabs | ✅ done — 5 new API modules + 5 new UI pages, phase8.sh 67/67 green (see below) |
 
 ### Deployment (fabricate.innofuse.xyz)
 
@@ -643,6 +654,11 @@ forge-comp-ground-truth (computed styles, not vision).
 | Dashboard | `components/dashboard/` | ✅ |
 | Quotes | `components/quotes/` + `components/quoteview/` | ✅ |
 | Library | `components/library/` | ✅ materials library (forge-list + search + category chips) |
+| Tools | `components/tools/` | ✅ material + process calculators (server math) |
+| Prefabs | `components/prefabs/` | ✅ templates + instantiate into quote + bake from quote |
+| Orders | `components/orders/` | ✅ CRUD + status pipeline |
+| Procurement | `components/procurement/` | ✅ POs / supplier quotes / received goods (tabs) |
+| Production | `components/production/` | ✅ records + variance + summary cards |
 | Reports | `components/reports/` | ✅ quote summary cards + forge-list table + per-quote PDF export |
 | Settings | `components/settings/` | ✅ user prefs + company name + process rates (forge-form + v-for rate grid), save verified |
 | Admin | `components/admin/` | ✅ user table + role dropdowns (admin-gated, forge user_role model) |

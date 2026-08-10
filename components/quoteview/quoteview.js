@@ -133,5 +133,47 @@ var comp = {
                 TOAST.show(e.message || 'Failed to export PDF', 'error');
             }
         },
+        openAddEntity() {
+            var self = this;
+            POPUP.show('Add Item', {
+                comp: 'forge-form',
+                props: {
+                    fields: {
+                        name: { label: 'Item Name', placeholder: 'e.g. Base Plate', required: true },
+                        type: {
+                            label: 'Type',
+                            type: 'option',
+                            options: { part: 'Part', assembly: 'Assembly', fastener: 'Fastener' },
+                            default: 'part',
+                        },
+                        quantity: { label: 'Quantity', type: 'number', default: 1 },
+                    },
+                    button_label: 'Add Item',
+                },
+                events: {
+                    submit: function (form) {
+                        self.addEntity(form);
+                        POPUP.close();
+                    },
+                },
+            });
+        },
+        async addEntity(form) {
+            try {
+                await WEB.api('./api/entities.php', {
+                    action: 'create',
+                    input: {
+                        type: form.type || 'part',
+                        name: form.name,
+                        quantity: parseInt(form.quantity, 10) || 1,
+                        quote_id: this.quoteId,
+                    }
+                });
+                TOAST.show('Item added', 'success');
+                this.load();
+            } catch (e) {
+                TOAST.show(e.message || 'Failed to add item', 'error');
+            }
+        },
     },
 };

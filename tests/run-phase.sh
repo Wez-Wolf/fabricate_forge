@@ -13,6 +13,8 @@
 #   phase4  Orchestration (systems.php)
 #   phase5  Quote lifecycle (quotes.php)
 #   phase6  Support (auth / user / admin / boms)
+#   phase7  Seeded library (material_library, 102 rows)
+#   phase8  Business modules (tools / orders / procurement / production / prefabs)
 #
 # Each phase test:
 #   1. Logs in as the dedicated test user (forge auth → auth_id)
@@ -100,6 +102,15 @@ clean_test_data() {
   DELETE FROM material_library WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
   DELETE FROM company_settings WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
   DELETE FROM user_prefs WHERE user_id IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM "order"    WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM purchase_order   WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM supplier_quote   WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM received_goods   WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM production_record   WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM production_variance WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM prefab_template  WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM prefab_instance  WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
+  DELETE FROM client WHERE user_id_owner IN (SELECT id FROM "user" WHERE email = '$TEST_EMAIL');
 SQL
   unset PGPASSWORD
   say "cleaned test data (owner-scoped)"
