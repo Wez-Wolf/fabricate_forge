@@ -1,0 +1,61 @@
+/* components/quote-form — New Quote form (POPUP body) */
+
+.C_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 24rem;
+}
+
+.C_field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.C_field_row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.C_field_row .C_field {
+    flex: 1;
+}
+
+.C_label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.C_req {
+    color: var(--error);
+}
+
+.C_input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.875rem;
+    width: 100%;
+}
+
+.C_input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.C_actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.C_cancel {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}

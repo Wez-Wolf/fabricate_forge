@@ -118,6 +118,11 @@ body,html{margin:0;padding:0;overflow:hidden;
     --forge-popup-accent: var(--accent);
     --forge-popup-text-light: var(--text);
 
+    /* forge-option (select dropdown) — selection surfaces */
+    --forge-option-selected-bg: var(--accent);
+    --forge-option-selected-text: var(--text-on-color);
+    --forge-option-hover-text: var(--text-on-color);
+
     /* forge-list */
     --forge-list-edit-add-text: var(--accent);
     /* list table surfaces — light-theme friendly (forge-list defaults assume dark) */

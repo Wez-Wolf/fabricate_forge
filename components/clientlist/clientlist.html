@@ -1,0 +1,41 @@
+<div class="C_main">
+    <!-- Search -->
+    <div class="C_toolbar">
+        <forge-search place_holder="Search clients..." @onSearch="onSearch" />
+        <span class="C_add_btn" @click="addMode">+ Add Client</span>
+    </div>
+
+    <!-- Inline add form -->
+    <div v-if="adding" class="C_add_form">
+        <input v-model="addForm.company_name" placeholder="Company name" class="C_input" />
+        <input v-model="addForm.email" placeholder="Email" class="C_input" />
+        <div class="C_add_actions">
+            <forge-button label="Save" @click="addClient(addForm)" />
+            <span class="C_cancel" @click="cancelAdd">Cancel</span>
+        </div>
+    </div>
+
+    <!-- List -->
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading clients..." />
+    </div>
+
+    <div v-else class="C_list">
+        <div
+            v-for="c in clients"
+            :key="c.id"
+            class="C_row"
+            :class="{ 'C_selectable': is_select }"
+            @click="pick(c)"
+        >
+            <div class="C_row_main">
+                <span class="C_name">{{ c.company_name || '—' }}</span>
+                <span class="C_meta">{{ [c.city, c.country].filter(Boolean).join(', ') }}</span>
+            </div>
+            <span v-if="c.email" class="C_email">{{ c.email }}</span>
+        </div>
+        <div v-if="!clients.length && !loading" class="C_empty">
+            <p>No clients found.</p>
+        </div>
+    </div>
+</div>

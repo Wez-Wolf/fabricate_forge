@@ -1,0 +1,9 @@
+/* components/clientselect — client picker (wraps forge-select) */
+
+.C_main {
+    width: 100%;
+}
+
+.C_main .forge-select_main {
+    width: 100%;
+}

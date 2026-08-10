@@ -1,0 +1,33 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Clients</h1>
+            <p class="C_subtitle">Your customers and contacts.</p>
+        </div>
+        <forge-button label="+ New Client" @click="openNew" />
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div class="C_toolbar">
+        <forge-search class="C_search" place_holder="Search clients..." @onSearch="onSearch" />
+    </div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading clients..." />
+    </div>
+
+    <div class="C_list">
+        <forge-list
+            v-if="!loading"
+            :fields="fields"
+            :value="rows"
+            :search="search"
+            @onFetch="onFetch"
+        />
+        <div v-if="!loading && !rows.length" class="C_empty">
+            <p>No clients yet.</p>
+            <forge-button label="Add your first client" @click="openNew" />
+        </div>
+    </div>
+</div>

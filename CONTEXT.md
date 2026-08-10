@@ -18,16 +18,28 @@ tree:
     - auth.php
     - _base.php
     - boms.php
+    - clients.php
     - components.php
     - cost.php
     - entities.php
-    - links.php
   - assets/
   - components/
     - admin/
       - admin.css
       - admin.html
       - admin.js
+    - clientlist/
+      - clientlist.css
+      - clientlist.html
+      - clientlist.js
+    - clients/
+      - clients.css
+      - clients.html
+      - clients.js
+    - clientselect/
+      - clientselect.css
+      - clientselect.html
+      - clientselect.js
     - dashboard/
       - dashboard.css
       - dashboard.html
@@ -44,6 +56,10 @@ tree:
       - nav.css
       - nav.html
       - nav.js
+    - quoteform/
+      - quoteform.css
+      - quoteform.html
+      - quoteform.js
     - quotes/
       - quotes.css
       - quotes.html
@@ -88,10 +104,10 @@ external_deps:
   (none)
 
 file_counts:
-  php: 22
+  php: 23
   vue: 0
-  js/ts: 9
-  styles: 10
+  js/ts: 13
+  styles: 14
   docs: 3
 
 symbols:

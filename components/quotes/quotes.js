@@ -9,6 +9,7 @@ var comp = {
         return {
             rows: [],           // forge-list rows: [name, customer, status, total, id]
             all: [],            // raw quotes for search/filter
+            clients: [],        // for the New Quote client select
             search: '',
             statusFilter: '',
             loading: false,
@@ -31,10 +32,25 @@ var comp = {
         }
     },
     created() {
+        this.loadClients();
         this.loadQuotes();
         this._ready = true;
     },
     methods: {
+        // Load clients for the New Quote client select (forge-option map)
+        async loadClients() {
+            try {
+                var res = await WEB.api('./api/clients.php', { action: 'list', input: { limit: 200 } });
+                this.clients = (res && res.data) || res || [];
+            } catch (e) { /* optional */ }
+        },
+        clientOptions() {
+            var opts = {};
+            (this.clients || []).forEach(function (c) {
+                opts[c.id] = c.company_name || c.id;
+            });
+            return opts;
+        },
         fmtMoney(v, currency) {
             try {
                 return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(parseFloat(v || 0));
@@ -106,19 +122,14 @@ var comp = {
         openNew() {
             var self = this;
             POPUP.show('New Quote', {
-                comp: 'forge-form',
-                props: {
-                    fields: {
-                        name: { label: 'Quote Name', placeholder: 'e.g. Skid Frame Build', required: true },
-                        customerName: { label: 'Customer', placeholder: 'Customer name' },
-                        currency: { label: 'Currency', type: 'select', options: ['USD', 'EUR', 'GBP', 'ZAR'] },
-                        dueDate: { label: 'Due Date', type: 'date' },
-                    },
-                    button_label: 'Create Quote',
-                },
+                comp: 'quoteform',
+                props: {},
                 events: {
                     submit: function (form) {
                         self.createQuote(form);
+                        POPUP.close();
+                    },
+                    cancel: function () {
                         POPUP.close();
                     },
                 },
@@ -126,11 +137,21 @@ var comp = {
         },
         async createQuote(form) {
             try {
+                // If a client was selected, use its name as the customer
+                var selectedClient = null;
+                var cid = form.client_id;
+                if (cid) {
+                    for (var i = 0; i < this.clients.length; i++) {
+                        if (this.clients[i].id === cid) { selectedClient = this.clients[i]; break; }
+                    }
+                }
                 await WEB.api('./api/quotes.php', {
                     action: 'create',
                     input: {
                         name: form.name,
-                        customer_name: form.customerName,
+                        client_id: cid || null,
+                        customer_name: form.customerName || (selectedClient ? selectedClient.company_name : ''),
+                        customer_email: selectedClient ? selectedClient.email : '',
                         currency: form.currency || 'USD',
                         due_date: form.dueDate,
                     }

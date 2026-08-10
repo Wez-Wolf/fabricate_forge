@@ -24,6 +24,7 @@ var comp = {
             tabs: [
                 { tag: 'dashboard', name: 'Dashboard', svg: 'layout-dashboard', comp: 'dashboard' },
                 { tag: 'quotes',    name: 'Quotes',    svg: 'file-text',        comp: 'quotes' },
+                { tag: 'clients',   name: 'Clients',   svg: 'users',            comp: 'clients' },
                 { tag: 'library',   name: 'Library',   svg: 'library',          comp: 'library' },
                 { tag: 'reports',   name: 'Reports',   svg: 'bar-chart',        comp: 'reports' },
                 { tag: 'settings',  name: 'Settings',  svg: 'settings',         comp: 'settings' },

@@ -1,0 +1,34 @@
+<div class="C_main">
+    <div class="C_field">
+        <label class="C_label">Quote Name <span class="C_req">*</span></label>
+        <input v-model="form.name" type="text" class="C_input" placeholder="e.g. Skid Frame Build" />
+    </div>
+
+    <div class="C_field">
+        <label class="C_label">Client</label>
+        <clientselect v-model="form.client_id" @input="onClientPick" />
+    </div>
+
+    <div class="C_field">
+        <label class="C_label">Customer (override)</label>
+        <input v-model="form.customerName" type="text" class="C_input" placeholder="Or type a customer name" />
+    </div>
+
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Currency</label>
+            <select v-model="form.currency" class="C_input">
+                <option v-for="c in currencies" :key="c" :value="c">{{ c }}</option>
+            </select>
+        </div>
+        <div class="C_field">
+            <label class="C_label">Due Date</label>
+            <input v-model="form.dueDate" type="date" class="C_input" />
+        </div>
+    </div>
+
+    <div class="C_actions">
+        <forge-button label="Create Quote" @click="submit" />
+        <span class="C_cancel" @click="cancel">Cancel</span>
+    </div>
+</div>

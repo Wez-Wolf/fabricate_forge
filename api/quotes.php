@@ -57,11 +57,25 @@ class quotes extends Base
         $name = \getVal($input, 'name') ?: \getVal($input, 'title')
             ?: ('Quote ' . substr(bin2hex(random_bytes(4)), 0, 8));
 
+        // If a client was selected, auto-fill customer fields from it
+        $clientId = \getVal($input, 'client_id');
+        $client = null;
+        if ($clientId) {
+            $clientRes = $this->pgCrud->read([
+                'table' => 'client',
+                'where' => 'id = $1 AND user_id_owner = $2',
+                'params' => [$clientId, $this->user_id],
+                'limit' => 1,
+            ]);
+            $client = $clientRes['data'][0] ?? null;
+        }
+
         $data = [
             'quoteNumber' => \getVal($input, 'quote_number') ?: 'Q-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8)),
-            'customerName' => \getVal($input, 'customer_name', ''),
-            'customerEmail' => \getVal($input, 'customer_email', ''),
-            'customerPhone' => \getVal($input, 'customer_phone', ''),
+            'clientId' => $clientId,
+            'customerName' => \getVal($input, 'customer_name', $client['company_name'] ?? ''),
+            'customerEmail' => \getVal($input, 'customer_email', $client['email'] ?? ''),
+            'customerPhone' => \getVal($input, 'customer_phone', $client['phone'] ?? ''),
             'dueDate' => \getVal($input, 'due_date'),
             'validityDays' => \getVal($input, 'validity_days', 30),
             'currency' => \getVal($input, 'currency', 'USD'),
