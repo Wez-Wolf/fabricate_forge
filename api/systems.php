@@ -61,11 +61,19 @@ class systems extends Base
         $entityIds = array_column($entities, 'id');
         $costs = [];
 
+        // Effective quote-global margin: quote field → user settings → default.
+        // Passed to the batch cost calc as options.margin_percent; line items
+        // can still override per-entity via entity.data.marginPercent (cost.php).
+        $marginPercent = $this->resolveQuoteMargin($quote);
+
         if ($entityIds) {
             // 2. Batch cost calculation (single pass — kills N+1)
             $costApi = new \api\cost();
             $costApi->user_id = $this->user_id;
-            $costRes = $costApi->handle_batch_calculate(['entity_ids' => $entityIds]);
+            $costRes = $costApi->handle_batch_calculate([
+                'entity_ids' => $entityIds,
+                'options' => ['margin_percent' => $marginPercent],
+            ]);
             if (isset($costRes['error'])) {
                 return $costRes;
             }
@@ -102,15 +110,38 @@ class systems extends Base
         $grandTotal = $totals['total'];
 
         // 5. Auto-persist totalCost + column totals into the quote's cost component
-        $this->persistQuoteTotal($quoteId, $grandTotal, count($entities), $totals);
+        $this->persistQuoteTotal($quoteId, $grandTotal, count($entities), $totals, $marginPercent);
 
         return [
             'quote' => $quote,
             'entities' => $entities,
             'costs' => $costs,
             'totals' => $totals,
+            'margin_percent' => $marginPercent,
             'total_cost' => $grandTotal,
         ];
+    }
+
+    /**
+     * Resolve the quote's effective margin %: explicit quote field
+     * (data.marginPercent) → user's defaultMarkupPercent from Settings → 30.
+     */
+    private function resolveQuoteMargin($quote)
+    {
+        $data = $quote['data'] ?? [];
+        if (isset($data['marginPercent']) && $data['marginPercent'] !== null && $data['marginPercent'] !== '') {
+            return (float)$data['marginPercent'];
+        }
+        $res = $this->pgCrud->read([
+            'table' => 'user_prefs',
+            'fields' => ['data'],
+            'where' => 'user_id = $1',
+            'params' => [$this->user_id],
+            'limit' => 1,
+        ]);
+        $prefs = $res['data'][0]['data'] ?? [];
+        $m = $prefs['defaultMarkupPercent'] ?? null;
+        return $m !== null ? (float)$m : 30;
     }
 
     /**
@@ -193,13 +224,14 @@ class systems extends Base
      * component. If no cost component exists yet, create one (holds quote-level
      * data).
      */
-    private function persistQuoteTotal($quoteId, $grandTotal, $entityCount, $totals = [])
+    private function persistQuoteTotal($quoteId, $grandTotal, $entityCount, $totals = [], $marginPercent = null)
     {
         $quoteCostData = [
             'total' => $grandTotal,
             'subtotal' => $grandTotal,
             'entity_count' => $entityCount,
             'totals' => $totals,
+            'marginPercent' => $marginPercent !== null ? (float)$marginPercent : null,
             'lastUpdated' => date('c'),
         ];
         $comps = $this->getComponents($quoteId, 'cost');

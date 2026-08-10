@@ -147,6 +147,11 @@ class entities extends Base
 
         $data = \getVal($input, 'data', []);
         $data = is_array($data) ? $data : [];
+        // Empty data must store as JSON object {} — an empty PHP array would
+        // json_encode to [] and poison every later `data || …` merge.
+        // NOTE: pass the JSON string (PgCrud json_encodes arrays only; a
+        // stdClass value crashes pg_query_params). '{}' is valid JSON for JSONB.
+        if (empty($data)) $data = '{}';
 
         $res = $this->pgCrud->save([
             'table' => 'entity',
@@ -174,7 +179,8 @@ class entities extends Base
         $id = \getVal($input, 'id') ?: \getVal($input, 'entity_id');
         if (!$id) return ['error' => 'Entity id is required.'];
 
-        if (!$this->getEntity($id)) {
+        $current = $this->getEntity($id);
+        if (!$current) {
             return ['error' => 'Entity not found.', 'error_code' => 404];
         }
 
@@ -189,10 +195,19 @@ class entities extends Base
                 $idx++;
             }
         }
-        // JSONB merge for the data blob
+        // JSONB merge for the data blob — but if the stored data is a JSON
+        // array (legacy rows created with empty data → '[]'), replace instead
+        // of concatenating: '[]' || '{...}' yields a list, not a merge.
         if (isset($input['data']) && is_array($input['data'])) {
-            $sets[] = "data = data || \${$idx}::jsonb";
-            $params[] = json_encode($input['data']);
+            $curData = $current['data'] ?? [];
+            $isList = is_array($curData) && array_keys($curData) === range(0, count($curData) - 1);
+            if ($isList || empty($curData)) {
+                $sets[] = "data = \${$idx}::jsonb";
+                $params[] = json_encode($input['data']);
+            } else {
+                $sets[] = "data = data || \${$idx}::jsonb";
+                $params[] = json_encode($input['data']);
+            }
             $idx++;
         }
         $sets[] = 'updated_at = NOW()';

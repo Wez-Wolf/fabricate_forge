@@ -11,6 +11,7 @@ var comp = {
     },
     methods: {
         goLogin() { ROUTER.navigate('/login'); },
+        goForgot() { ROUTER.navigate('/forgot-password'); },
         goSignup() { ROUTER.navigate('/signup'); },
     },
 };

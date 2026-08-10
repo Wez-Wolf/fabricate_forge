@@ -89,14 +89,16 @@
 
 /* Tabs content */
 .C_tab_content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     padding-top: 1rem;
 }
 
-.C_summary_cards {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+.quoteview_summary_cards {
+    display: flex;
+    flex-direction: row;
     gap: 1rem;
-
 }
 
 .C_card {
@@ -125,11 +127,14 @@
     color: var(--text);
 }
 
-.C_section {
+.quoteview_section {
+    display: flex;
+    flex-direction: column;
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: 8px;
 }
+
 
 .C_section_header {
     padding: 0.9rem 1.25rem;
@@ -176,7 +181,13 @@
 .C_right { text-align: right; }
 
 /* 12-column cost breakdown: allow horizontal scroll on narrow screens */
-.C_table_wrap { overflow-x: auto; }
+.quoteview_table_wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-x: auto;
+}
+
 .C_cost_table { min-width: 1150px; }
 .C_cost_table th, .C_cost_table td { white-space: nowrap; }
 .C_cost_table td.num, .C_cost_table th { font-variant-numeric: tabular-nums; }
@@ -200,10 +211,10 @@
 }
 
 @media (max-width: 768px) {
-    .C_summary_cards { grid-template-columns: 1fr; }
+    quoteview_summary_cards { grid-template-columns: 1fr; }
 }
 
-/* ── Entity hierarchy tree ── */
+
 
 .C_tree {
     display: flex;
@@ -211,12 +222,12 @@
     gap: 2px;
 }
 
-.C_tree_row {
+.quoteview_tree_row {
     transition: background-color 0.15s;
     border-radius: 6px;
 }
 
-.C_node_row {
+.quoteview_node_row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -227,11 +238,11 @@
     font-size: 0.875rem;
 }
 
-.C_node_row:hover {
+.quoteview_node_row:hover {
     background: var(--hover-bg, rgba(59, 130, 246, 0.06));
 }
 
-.C_node_expand {
+.quoteview_node_expand {
     width: 16px;
     text-align: center;
     color: var(--text-dim);
@@ -239,7 +250,7 @@
     flex-shrink: 0;
 }
 
-.C_node_badge {
+.quoteview_node_badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -253,13 +264,13 @@
     flex-shrink: 0;
 }
 
-.C_node_badge.t-assembly { background: #7c3aed; }
-.C_node_badge.t-part { background: #2563eb; }
-.C_node_badge.t-fastener { background: #059669; }
-.C_node_badge.t-quote { background: #64748b; }
-.C_node_badge.t-undefined { background: #94a3b8; }
+.quoteview_node_badge.t-assembly { background: #7c3aed; }
+.quoteview_node_badge.t-part { background: #2563eb; }
+.quoteview_node_badge.t-fastener { background: #059669; }
+.quoteview_node_badge.t-quote { background: #64748b; }
+.quoteview_node_badge.t-undefined { background: #94a3b8; }
 
-.C_node_name {
+.quoteview_node_name {
     font-weight: 500;
     color: var(--text);
     flex: 1;
@@ -269,13 +280,13 @@
     white-space: nowrap;
 }
 
-.C_node_type {
+.quoteview_node_type {
     color: var(--text-dim);
     font-size: 0.75rem;
     flex-shrink: 0;
 }
 
-.C_qty {
+.quoteview_qty {
     background: var(--accent);
     color: #fff;
     padding: 1px 6px;
@@ -284,7 +295,7 @@
     flex-shrink: 0;
 }
 
-.C_node_cost {
+.quoteview_node_cost {
     color: var(--success, #059669);
     font-size: 0.8125rem;
     min-width: 80px;
@@ -293,7 +304,7 @@
     flex-shrink: 0;
 }
 
-.C_tree_children {
+.quoteview_tree_children {
     display: flex;
     flex-direction: column;
 }

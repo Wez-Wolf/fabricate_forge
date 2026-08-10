@@ -181,7 +181,6 @@ class links extends Base
             'name' => $root['name'],
             'type' => $root['type'],
             'quantity' => $root['quantity'] ?? 1,
-            'data' => $root['data'] ?? [],
         ];
         $tree['children'] = $this->buildTree($rootId, 0, $maxDepth, []);
 
@@ -224,7 +223,6 @@ class links extends Base
                 'name' => $child['name'],
                 'type' => $child['type'],
                 'quantity' => $link['quantity'] ?? 1,
-                'data' => $child['data'] ?? [],
                 'children' => $this->buildTree($link['to_id'], $depth + 1, $maxDepth, $visited),
             ];
         }

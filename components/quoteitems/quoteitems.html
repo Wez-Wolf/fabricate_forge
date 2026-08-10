@@ -1,0 +1,46 @@
+<div class="C_main">
+    <p class="C_hint">Add one or many line items at once — they land on the quote immediately and the total recalculates in a single pass.</p>
+
+    <div class="C_table_wrap">
+        <table class="C_table">
+            <thead>
+                <tr>
+                    <th style="width: 34%">Item Name</th>
+                    <th style="width: 110px">Type</th>
+                    <th style="width: 70px">Qty</th>
+                    <th style="width: 34%">Description</th>
+                    <th style="width: 30px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(r, i) in items" :key="i">
+                    <td>
+                        <input v-model="r.name" type="text" class="C_input" placeholder="e.g. Base Plate" @keyup.enter="addRow" />
+                    </td>
+                    <td>
+                        <select v-model="r.type" class="C_input">
+                            <option v-for="t in types" :key="t.v" :value="t.v">{{ t.label }}</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input v-model.number="r.quantity" type="number" min="1" class="C_input" />
+                    </td>
+                    <td>
+                        <input v-model="r.description" type="text" class="C_input" placeholder="optional" />
+                    </td>
+                    <td>
+                        <button class="C_icon_btn" @click="removeRow(i)" title="Remove row">×</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="C_actions">
+        <forge-button label="+ Add Row" @click="addRow" cls="ghost" />
+        <span class="C_spacer"></span>
+        <span class="C_count">{{ validCount }} item{{ validCount === 1 ? '' : 's' }}</span>
+        <forge-button :label="'Create Items (' + validCount + ')'" @click="submit" :disabled="!validCount" />
+        <span class="C_cancel" @click="cancel">Cancel</span>
+    </div>
+</div>

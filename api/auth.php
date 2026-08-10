@@ -132,13 +132,14 @@ SQL);
 
         $token = bin2hex(random_bytes(24));
         if ($user) {
+            // NOTE: don't set 'used' explicitly — PgCrud converts PHP false to ''
+            // which Postgres rejects for BOOLEAN; the column defaults to FALSE.
             $this->pgCrud->save([
                 'table' => 'password_reset',
                 'data' => [
                     'user_id' => $user['id'],
                     'token_hash' => hash('sha256', $token),
                     'expires_at' => date('c', time() + 3600),
-                    'used' => false,
                 ],
             ]);
         }
@@ -174,7 +175,7 @@ SQL);
         if (!$row) {
             return ['error' => 'Invalid or expired reset token.', 'error_code' => 400];
         }
-        if ($row['used']) {
+        if ($this->isTruthy($row['used'])) {
             return ['error' => 'This reset link has already been used.', 'error_code' => 400];
         }
         if (strtotime($row['expires_at']) < time()) {
@@ -193,6 +194,18 @@ SQL);
         );
 
         return ['data' => ['success' => true, 'message' => 'Password updated. You can now log in.']];
+    }
+
+    /**
+     * Postgres BOOLEAN arrives as 't'/'f' strings via PgCrud — PHP's truthiness
+     * would treat 'f' as true. Central truthy check for PgCrud booleans.
+     */
+    private function isTruthy($v)
+    {
+        if (is_bool($v)) return $v;
+        if ($v === null || $v === '') return false;
+        if (is_numeric($v)) return (float)$v !== 0.0;
+        return !in_array(strtolower((string)$v), ['f', 'false', '0', 'no', 'off']);
     }
 
     private function getPrefs($userId)

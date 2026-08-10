@@ -27,6 +27,11 @@
         </div>
     </div>
 
+    <div class="C_field">
+        <label class="C_label">Margin % <span class="C_hint">(from Settings — quote default, items can override)</span></label>
+        <input v-model="form.margin" type="number" step="0.1" min="0" max="100" class="C_input" placeholder="e.g. 20" />
+    </div>
+
     <div class="C_actions">
         <forge-button label="Create Quote" @click="submit" />
         <span class="C_cancel" @click="cancel">Cancel</span>

@@ -122,9 +122,28 @@ class cost extends Base
         $entity = $this->getEntity($entityId);
         if (!$entity) return ['error' => 'Entity not found.', 'error_code' => 404];
 
+        // Normalize entity.data — legacy rows may store it as a JSON array of
+        // merged objects ([] + '||' merge bug). Fold lists into one object.
+        $entityData = $entity['data'] ?? [];
+        if (is_array($entityData) && isset($entityData[0]) && is_array($entityData[0])) {
+            $folded = [];
+            foreach ($entityData as $obj) {
+                if (is_array($obj)) $folded = array_merge($folded, $obj);
+            }
+            $entityData = $folded;
+        }
+        $entity['data'] = $entityData;
+
         $options = \getVal($input, 'options', []);
         $quantity = (float)($entity['quantity'] ?? 1);
-        $marginPercent = (float)\getVal($options, 'margin_percent', self::DEFAULT_MARGIN_PERCENT);
+        // Margin precedence: line-item override (entity.data.marginPercent) →
+        // quote-global (options.margin_percent, passed by load_quote from the
+        // quote's data.marginPercent or the user's defaultMarkupPercent) →
+        // DEFAULT_MARGIN_PERCENT.
+        $itemMargin = $entityData['marginPercent'] ?? null;
+        $marginPercent = $itemMargin !== null
+            ? (float)$itemMargin
+            : (float)\getVal($options, 'margin_percent', self::DEFAULT_MARGIN_PERCENT);
 
         // READ: material component → library → mass
         $matData = $this->getMaterialData($entityId);
@@ -230,16 +249,18 @@ class cost extends Base
 
     /**
      * Batch: calculate cost for many entities in one call (kills N+1).
-     * Input: { entity_ids: [...] } — writes cost components on each.
+     * Input: { entity_ids: [...], options?: { margin_percent, consumables, … } }
+     * — writes cost components on each.
      */
     public function handle_batch_calculate($input = [])
     {
         $ids = \getVal($input, 'entity_ids', []);
         if (!is_array($ids) || empty($ids)) return ['error' => 'entity_ids (array) is required.'];
 
+        $options = \getVal($input, 'options', []);
         $results = [];
         foreach ($ids as $id) {
-            $r = $this->handle_calculate_entity(['entity_id' => $id]);
+            $r = $this->handle_calculate_entity(['entity_id' => $id, 'options' => $options]);
             if (isset($r['error'])) {
                 $results[$id] = $r;
             } else {

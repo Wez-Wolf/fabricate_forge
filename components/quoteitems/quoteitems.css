@@ -1,0 +1,105 @@
+.C_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 640px;
+}
+
+.C_hint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.C_table_wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md, 8px);
+}
+
+.C_table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface, #fff);
+}
+
+.C_table th {
+    text-align: left;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    background: var(--surface-2, #f1f5f9);
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.C_table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.C_table tbody tr:last-child td { border-bottom: none; }
+
+.C_input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--surface, #fff);
+}
+
+.C_input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.C_icon_btn {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    color: var(--text-dim);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.C_icon_btn:hover {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.C_actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.C_spacer {
+    flex: 1;
+}
+
+.C_count {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.C_cancel {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.C_cancel:hover {
+    color: var(--text);
+}

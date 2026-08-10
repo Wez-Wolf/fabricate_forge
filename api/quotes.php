@@ -38,6 +38,7 @@ class quotes extends Base
         'quoteNumber', 'customerName', 'customerEmail', 'customerPhone',
         'customerAddress', 'dueDate', 'validityDays', 'validityDate',
         'currency', 'statusHistory', 'status', 'clientId', 'materialRates',
+        'marginPercent',
     ];
 
     protected function buildTable()
@@ -79,6 +80,10 @@ class quotes extends Base
             'dueDate' => \getVal($input, 'due_date'),
             'validityDays' => \getVal($input, 'validity_days', 30),
             'currency' => \getVal($input, 'currency', 'USD'),
+            // Quote-global margin, defaulted from the user's settings
+            // (defaultMarkupPercent) so quotes inherit the house margin
+            // but can override per-quote (and per line item).
+            'marginPercent' => \getVal($input, 'margin_percent', $this->getUserDefaultMargin()),
             'status' => 'draft',
             'statusHistory' => [[
                 'status' => 'draft',
@@ -164,8 +169,15 @@ class quotes extends Base
             $idx++;
         }
         if ($patch) {
-            $sets[] = "data = data || \${$idx}::jsonb";
-            $params[] = json_encode($patch);
+            $curData = $quote['data'] ?? [];
+            $isList = is_array($curData) && array_keys($curData) === range(0, count($curData) - 1);
+            if ($isList || empty($curData)) {
+                $sets[] = "data = \${$idx}::jsonb";
+                $params[] = json_encode($patch);
+            } else {
+                $sets[] = "data = data || \${$idx}::jsonb";
+                $params[] = json_encode($patch);
+            }
             $idx++;
         }
         if (!$sets) return ['error' => 'Nothing to update.'];
@@ -230,6 +242,24 @@ class quotes extends Base
     }
 
     /**
+     * The user's default margin % from Settings (user_prefs.defaultMarkupPercent),
+     * falling back to the app default (30) when unset.
+     */
+    private function getUserDefaultMargin()
+    {
+        $res = $this->pgCrud->read([
+            'table' => 'user_prefs',
+            'fields' => ['data'],
+            'where' => 'user_id = $1',
+            'params' => [$this->user_id],
+            'limit' => 1,
+        ]);
+        $prefs = $res['data'][0]['data'] ?? [];
+        $m = $prefs['defaultMarkupPercent'] ?? null;
+        return $m !== null ? (float)$m : 30;
+    }
+
+    /**
      * Soft-delete a quote (is_active = FALSE).
      */
     public function handle_delete($input = [])
@@ -271,6 +301,56 @@ class quotes extends Base
         $systems = new \api\systems();
         $systems->user_id = $this->user_id;
         return $systems->handle_load_quote(['quote_id' => $quoteId]);
+    }
+
+    /**
+     * Batch-add line items to a quote in one call (N entities + a single
+     * recalc via load_quote — the batch cost pass is already single-roundtrip).
+     * Input: { quote_id, items: [{ name, type?, quantity?, description?, data? }] }
+     */
+    public function handle_add_items($input = [])
+    {
+        $quoteId = \getVal($input, 'quote_id');
+        $items = \getVal($input, 'items', []);
+        if (!$quoteId) return ['error' => 'quote_id is required.'];
+        if (!is_array($items) || empty($items)) return ['error' => 'items (array) is required.'];
+
+        $quote = $this->getEntity($quoteId);
+        if (!$quote || $quote['type'] !== 'quote') {
+            return ['error' => 'Quote not found.', 'error_code' => 404];
+        }
+
+        $allowed = ['part', 'assembly', 'fastener'];
+        $created = [];
+        foreach ($items as $it) {
+            if (!is_array($it)) continue;
+            $name = trim((string)\getVal($it, 'name', ''));
+            if ($name === '') continue;
+            $type = \getVal($it, 'type', 'part');
+            if (!in_array($type, $allowed)) $type = 'part';
+
+            $row = [
+                'type' => $type,
+                'name' => $name,
+                'description' => \getVal($it, 'description', ''),
+                'quote_id' => $quoteId,
+                'quantity' => max(1, (int)\getVal($it, 'quantity', 1)),
+                'user_id_owner' => $this->user_id,
+            ];
+            $extra = \getVal($it, 'data', []);
+            if (is_array($extra) && !empty($extra)) $row['data'] = $extra;
+
+            $res = $this->pgCrud->save(['table' => 'entity', 'data' => $row]);
+            if (empty($res['error'])) $created[] = $res['data']['id'] ?? null;
+        }
+        if (!$created) return ['error' => 'No valid items provided.'];
+
+        // Single recalc + return the fresh quote (batch cost = one pass)
+        $systems = new \api\systems();
+        $systems->user_id = $this->user_id;
+        $loaded = $systems->handle_load_quote(['quote_id' => $quoteId]);
+        if (!isset($loaded['error'])) $loaded['items_created'] = count($created);
+        return $loaded;
     }
 
     /**

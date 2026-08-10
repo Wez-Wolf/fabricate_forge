@@ -154,6 +154,7 @@ var comp = {
                         customer_email: selectedClient ? selectedClient.email : '',
                         currency: form.currency || 'USD',
                         due_date: form.dueDate,
+                        margin_percent: form.margin != null && form.margin !== '' ? parseFloat(form.margin) : undefined,
                     }
                 });
                 this.loadQuotes();

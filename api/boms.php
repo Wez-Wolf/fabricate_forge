@@ -177,7 +177,21 @@ class boms extends Base
             $item = $e['item_number'];
             if (!$item) continue;
             $parts = explode('.', (string)$item);
-            if (count($parts) <= 1) continue;
+            // Top-level items ("1", "2") attach to the QUOTE itself — this is
+            // what makes links.tree from the quote return the full hierarchy.
+            if (count($parts) <= 1) {
+                $this->pgCrud->save([
+                    'table' => 'link',
+                    'data' => [
+                        'from_id' => $quoteId,
+                        'to_id' => $e['id'],
+                        'type' => 'contains',
+                        'quantity' => $e['quantity'],
+                        'user_id_owner' => $this->user_id,
+                    ],
+                ]);
+                continue;
+            }
             $parentItem = implode('.', array_slice($parts, 0, -1));
 
             // Find parent by item number

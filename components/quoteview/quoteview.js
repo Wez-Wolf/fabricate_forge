@@ -20,6 +20,7 @@ var comp = {
             tabs: [
                 { key: 'overview', tag: 'overview', name: 'Overview', svg: 'layout-dashboard' },
                 { key: 'bom',      tag: 'bom',      name: 'BOM',      svg: 'list' },
+                { key: 'tree',     tag: 'tree',     name: 'Tree',     svg: 'git-branch' },
                 { key: 'process',  tag: 'process',  name: 'Process',  svg: 'timer' },
             ],
             // 12-column cost breakdown shown on the quote (user requirement)
@@ -47,6 +48,7 @@ var comp = {
                 transport:   { label: 'Transport',         type: 'number', step: '0.01' },
             },
             totals: {},
+            marginPercent: null,
             // forge-tabs may drive via v-model; fall back to click handler
             selectedTab: 'overview',
             // entity tree state
@@ -150,7 +152,7 @@ var comp = {
             }
             return this.fmtMoney(v);
         },
-        // per-row on-cost editor (Cons/Serve/NDT/Lining/Paint/Transport)
+        // per-row on-cost editor (Cons/Serve/NDT/Lining/Paint/Transport + margin override)
         openCostEditor(entity) {
             var self = this;
             var onCosts = (entity.data && entity.data.onCosts) || {};
@@ -160,6 +162,13 @@ var comp = {
                 f.default = onCosts[k] != null ? parseFloat(onCosts[k]) : 0;
                 fields[k] = f;
             });
+            // Line-item margin override: blank/0 → use quote-global margin
+            fields.marginPercent = {
+                label: 'Margin % (0 = quote default ' + (this.marginPercent != null ? this.marginPercent : 30) + '%)',
+                type: 'number',
+                step: '0.1',
+                default: entity.data && entity.data.marginPercent != null ? parseFloat(entity.data.marginPercent) : 0,
+            };
             POPUP.show('Edit Costs — ' + entity.name, {
                 comp: 'forge-form',
                 props: {
@@ -181,9 +190,17 @@ var comp = {
                     var v = parseFloat(form[k]);
                     onCosts[k] = isNaN(v) ? 0 : v;
                 });
+                // margin override: explicit number → set; blank/0 → clear (use quote default)
+                var mv = parseFloat(form.marginPercent);
+                var data = { onCosts: onCosts };
+                if (!isNaN(mv) && mv > 0) {
+                    data.marginPercent = mv;
+                } else {
+                    data.marginPercent = null;
+                }
                 await WEB.api('./api/entities.php', {
                     action: 'update',
-                    input: { id: entity.id, data: { onCosts: onCosts } }
+                    input: { id: entity.id, data: data }
                 });
                 // recalc clears cached cost components, then load() recomputes
                 await WEB.api('./api/systems.php', {
@@ -194,6 +211,49 @@ var comp = {
                 TOAST.show('Costs saved', 'success');
             } catch (e) {
                 TOAST.show(e.message || 'Failed to save costs', 'error');
+            }
+        },
+        // quote-global margin editor (default from Settings, per-quote override)
+        openMarginEditor() {
+            var self = this;
+            POPUP.show('Quote Margin', {
+                comp: 'forge-form',
+                props: {
+                    fields: {
+                        margin_percent: {
+                            label: 'Margin % (applies to all items unless overridden)',
+                            type: 'number',
+                            step: '0.1',
+                            min: 0,
+                            max: 100,
+                            default: this.marginPercent != null ? this.marginPercent : 30,
+                        },
+                    },
+                    button_label: 'Save Margin',
+                },
+                events: {
+                    submit: function (form) {
+                        self.saveQuoteMargin(form);
+                        POPUP.close();
+                    },
+                },
+            });
+        },
+        async saveQuoteMargin(form) {
+            try {
+                var mv = parseFloat(form.margin_percent);
+                await WEB.api('./api/quotes.php', {
+                    action: 'update',
+                    input: { id: this.quoteId, margin_percent: isNaN(mv) ? null : mv }
+                });
+                await WEB.api('./api/systems.php', {
+                    action: 'recalculate_quote',
+                    input: { quote_id: this.quoteId }
+                });
+                this.load();
+                TOAST.show('Margin updated', 'success');
+            } catch (e) {
+                TOAST.show(e.message || 'Failed to save margin', 'error');
             }
         },
         esc(s) {
@@ -228,6 +288,7 @@ var comp = {
                 });
                 this.costs = res.costs || {};
                 this.totals = res.totals || {};
+                this.marginPercent = res.margin_percent != null ? parseFloat(res.margin_percent) : null;
                 this.totalCost = res.total_cost || 0;
             } catch (e) {
                 this.error = e.message || 'Failed to load quote';
@@ -293,6 +354,37 @@ var comp = {
                     },
                 },
             });
+        },
+        openBatchAdd() {
+            var self = this;
+            POPUP.show('Add Items', {
+                comp: 'quoteitems',
+                props: {},
+                class_body: 'popup_body_lg',
+                events: {
+                    submit: function (form) {
+                        self.addItems(form);
+                        POPUP.close();
+                    },
+                    cancel: function () {
+                        POPUP.close();
+                    },
+                },
+            });
+        },
+        async addItems(form) {
+            if (!form || !form.items || !form.items.length) return;
+            try {
+                var res = await WEB.api('./api/quotes.php', {
+                    action: 'add_items',
+                    input: { quote_id: this.quoteId, items: form.items }
+                });
+                if (res && res.error) throw new Error(res.error);
+                TOAST.show((res.items_created || 0) + ' items added', 'success');
+                this.load();
+            } catch (e) {
+                TOAST.show(e.message || 'Failed to add items', 'error');
+            }
         },
         async addEntity(form) {
             try {

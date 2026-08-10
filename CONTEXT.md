@@ -84,6 +84,10 @@ tree:
       - quoteform.css
       - quoteform.html
       - quoteform.js
+    - quoteitems/
+      - quoteitems.css
+      - quoteitems.html
+      - quoteitems.js
     - quotes/
       - quotes.css
       - quotes.html
@@ -140,8 +144,8 @@ external_deps:
 file_counts:
   php: 30
   vue: 0
-  js/ts: 21
-  styles: 22
+  js/ts: 22
+  styles: 23
   docs: 3
 
 symbols:

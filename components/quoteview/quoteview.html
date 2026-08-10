@@ -18,9 +18,13 @@
                     <span class="status-pill" :class="status">{{ status }}</span>
                     <span class="C_meta_item">Customer: {{ (quote.data && quote.data.customerName) || '—' }}</span>
                     <span class="C_meta_item">Currency: {{ currency }}</span>
+                    <span class="C_meta_item">Margin:
+                        <button class="C_link" @click="openMarginEditor">{{ marginPercent != null ? marginPercent + '%' : '30%' }}</button>
+                    </span>
                 </div>
             </div>
             <div class="C_actions">
+                <forge-button label="Add Items" @click="openBatchAdd" />
                 <forge-button label="Add Item" @click="openAddEntity" />
                 <forge-button label="Export PDF" @click="exportPdf" />
             </div>

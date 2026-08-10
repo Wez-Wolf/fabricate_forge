@@ -13,6 +13,7 @@ var comp = {
                 customerName: '',
                 currency: '',
                 dueDate: '',
+                margin: null,
             },
             currencies: ['USD', 'EUR', 'GBP', 'ZAR', 'CAD', 'AUD'],
         };
@@ -21,7 +22,7 @@ var comp = {
         this.loadPrefs();
     },
     methods: {
-        // Default the currency to the user's preference from Settings
+        // Default currency + margin to the user's preferences from Settings
         async loadPrefs() {
             try {
                 var res = await WEB.api('./api/user.php', {
@@ -30,6 +31,7 @@ var comp = {
                 });
                 var p = (res && res.data) || res || {};
                 if (p.defaultCurrency) this.form.currency = p.defaultCurrency;
+                if (p.defaultMarkupPercent != null) this.form.margin = parseFloat(p.defaultMarkupPercent);
             } catch (e) {
                 this.form.currency = 'USD';
             }

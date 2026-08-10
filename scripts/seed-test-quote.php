@@ -64,6 +64,18 @@ echo "Materials: {$skidMat['name']}, {$frameMat['name']}, {$bracketMat['name']}\
 
 // ── Quote ─────────────────────────────────────────────
 // A quote is an entity with type='quote'; data carries quote fields.
+// Idempotent: skip if this user already has a Tank Skid test quote.
+$existingQuote = $pg->read([
+    'table' => 'entity',
+    'where' => "type = 'quote' AND name = 'Test Project - Tank Skid' AND user_id_owner = \$1",
+    'params' => [$userId],
+    'limit' => 1,
+]);
+if (!empty($existingQuote['data'])) {
+    echo "[SEED] Quote already exists for $email — skipping (" . $existingQuote['data'][0]['id'] . ")\n";
+    exit(0);
+}
+
 $qres = $pg->save([
     'table' => 'entity',
     'data' => [
@@ -178,6 +190,8 @@ insComponent($pg, $userId, $bracketId, 'process', ['machining' => 0.5], $quoteId
 // ── Contains links (assembly → parts) ─────────────────
 insLink($pg, $userId, $assemblyId, $frameId, 'contains', 1);
 insLink($pg, $userId, $assemblyId, $bracketId, 'contains', 2);
+// Quote → root assembly link so the tree tab shows the hierarchy
+insLink($pg, $userId, $quoteId, $assemblyId, 'contains', 1);
 
 echo "Seeded test quote for $email\n";
 echo "  Quote:     Test Project - Tank Skid ($quoteId)\n";
