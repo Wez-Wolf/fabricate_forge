@@ -26,6 +26,11 @@ var comp = {
                 { tag: 'quotes',    name: 'Quotes',    svg: 'file-text',        comp: 'quotes' },
                 { tag: 'clients',   name: 'Clients',   svg: 'users',            comp: 'clients' },
                 { tag: 'library',   name: 'Library',   svg: 'library',          comp: 'library' },
+                { tag: 'tools',     name: 'Tools',     svg: 'calculator',       comp: 'tools' },
+                { tag: 'prefabs',   name: 'Prefabs',   svg: 'boxes',            comp: 'prefabs' },
+                { tag: 'orders',    name: 'Orders',    svg: 'clipboard-list',   comp: 'orders' },
+                { tag: 'procurement', name: 'Procurement', svg: 'truck',        comp: 'procurement' },
+                { tag: 'production',  name: 'Production',  svg: 'activity',     comp: 'production' },
                 { tag: 'reports',   name: 'Reports',   svg: 'bar-chart',        comp: 'reports' },
                 { tag: 'settings',  name: 'Settings',  svg: 'settings',         comp: 'settings' },
                 { tag: 'admin',     name: 'Admin',     svg: 'shield',           comp: 'admin' },
@@ -68,7 +73,7 @@ var comp = {
         // Admin tab only for admin users
         visibleTabs() {
             var t = this.tabs.filter(function(tab) { return tab.tag !== 'admin'; });
-            if (this.userRole === 'admin') t.push(this.tabs[5]);
+            if (this.userRole === 'admin') t.push(this.tabs[this.tabs.length - 1]);
             return t;
         },
     },

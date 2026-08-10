@@ -56,6 +56,22 @@ tree:
       - nav.css
       - nav.html
       - nav.js
+    - orders/
+      - orders.css
+      - orders.html
+      - orders.js
+    - prefabs/
+      - prefabs.css
+      - prefabs.html
+      - prefabs.js
+    - procurement/
+      - procurement.css
+      - procurement.html
+      - procurement.js
+    - production/
+      - production.css
+      - production.html
+      - production.js
     - quoteform/
       - quoteform.css
       - quoteform.html
@@ -76,6 +92,10 @@ tree:
       - settings.css
       - settings.html
       - settings.js
+    - tools/
+      - tools.css
+      - tools.html
+      - tools.js
   - lib/
     - config.php
     - init.php
@@ -104,10 +124,10 @@ external_deps:
   (none)
 
 file_counts:
-  php: 23
+  php: 28
   vue: 0
-  js/ts: 13
-  styles: 14
+  js/ts: 18
+  styles: 19
   docs: 3
 
 symbols:

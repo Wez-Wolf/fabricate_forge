@@ -1,0 +1,31 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Prefabs</h1>
+            <p class="C_subtitle">Reusable assemblies — instantiate into any quote.</p>
+        </div>
+        <div class="C_header_actions">
+            <forge-button label="Bake from Quote" @click="openBake" />
+            <forge-button label="+ New Prefab" @click="openNew" />
+        </div>
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading prefabs..." />
+    </div>
+
+    <div class="C_list">
+        <forge-list
+            v-if="!loading"
+            :fields="fields"
+            :value="rows"
+            @onSvg="onSvg"
+        />
+        <div v-if="!loading && !rows.length" class="C_empty">
+            <p>No prefabs yet. Create one or bake an existing quote assembly.</p>
+            <forge-button label="Create your first prefab" @click="openNew" />
+        </div>
+    </div>
+</div>

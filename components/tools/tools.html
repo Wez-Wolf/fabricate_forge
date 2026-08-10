@@ -1,0 +1,159 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Tools</h1>
+            <p class="C_subtitle">Material and process calculators (server-computed).</p>
+        </div>
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading calculators..." />
+    </div>
+
+    <template v-else>
+        <!-- Material Calculator -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Material Cost Calculator</h2>
+            </div>
+
+            <div class="C_toolbar">
+                <div class="C_filters">
+                    <span
+                        v-for="k in materialModes"
+                        :key="k"
+                        class="C_filter_chip"
+                        :class="{ 'C_active': matMode === k }"
+                        @click="matMode = k"
+                    >{{ k }}</span>
+                </div>
+            </div>
+
+            <div v-if="matMode === 'plate'" class="C_input_grid">
+                <label class="C_field">Thickness (mm)<input v-model.number="plate.thickness" type="number" min="0.1" step="0.1" /></label>
+                <label class="C_field">Length (mm)<input v-model.number="plate.length" type="number" min="1" step="1" /></label>
+                <label class="C_field">Width (mm)<input v-model.number="plate.width" type="number" min="1" step="1" /></label>
+                <label class="C_field">Quantity<input v-model.number="plate.quantity" type="number" min="1" step="1" /></label>
+                <label class="C_field">Rate (per kg)<input v-model.number="plate.materialRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Waste %<input v-model.number="plate.wasteFactor" type="number" min="0" max="50" step="1" /></label>
+                <label class="C_field">Material
+                    <select v-model="plate.materialType">
+                        <option value="steel">Steel</option>
+                        <option value="stainless">Stainless Steel</option>
+                        <option value="aluminum">Aluminum</option>
+                    </select>
+                </label>
+            </div>
+
+            <div v-else-if="matMode === 'section'" class="C_input_grid">
+                <label class="C_field">Weight / m (kg)<input v-model.number="section.weightPerMeter" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Length (mm)<input v-model.number="section.length" type="number" min="1" step="1" /></label>
+                <label class="C_field">Quantity<input v-model.number="section.quantity" type="number" min="1" step="1" /></label>
+                <label class="C_field">Rate (per kg)<input v-model.number="section.materialRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Waste %<input v-model.number="section.wasteFactor" type="number" min="0" max="20" step="1" /></label>
+            </div>
+
+            <div v-else class="C_input_grid">
+                <label class="C_field">Weight (kg)<input v-model.number="general.weight" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Rate (per kg)<input v-model.number="general.materialRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Processing Factor<input v-model.number="general.processingFactor" type="number" min="1" step="0.1" /></label>
+            </div>
+
+            <div class="C_save_row">
+                <forge-button label="Calculate Material" @click="calcMaterial" :disabled="calculating" />
+            </div>
+
+            <div v-if="matResult" class="C_results">
+                <div v-for="(v, k) in matResult" :key="k" class="C_result_row">
+                    <span class="C_result_label">{{ prettyKey(k) }}</span>
+                    <span class="C_result_value num">{{ formatVal(v) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Calculator -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Process Cost Calculator</h2>
+            </div>
+
+            <div class="C_toolbar">
+                <div class="C_filters">
+                    <span
+                        v-for="k in processModes"
+                        :key="k"
+                        class="C_filter_chip"
+                        :class="{ 'C_active': procMode === k }"
+                        @click="procMode = k"
+                    >{{ k }}</span>
+                </div>
+            </div>
+
+            <div v-if="procMode === 'welding'" class="C_input_grid">
+                <label class="C_field">Weld Type
+                    <select v-model="welding.weldType">
+                        <option value="butt">Butt</option>
+                        <option value="fillet">Fillet</option>
+                        <option value="lap">Lap</option>
+                        <option value="corner">Corner</option>
+                    </select>
+                </label>
+                <label class="C_field">Weld Length (mm)<input v-model.number="welding.weldLength" type="number" min="1" step="1" /></label>
+                <label class="C_field">Quantity<input v-model.number="welding.quantity" type="number" min="1" step="1" /></label>
+                <label class="C_field">Thickness (mm)<input v-model.number="welding.materialThickness" type="number" min="1" step="0.5" /></label>
+                <label class="C_field">Quality Factor<input v-model.number="welding.qualityFactor" type="number" min="1" step="0.1" /></label>
+                <label class="C_field">Labor Rate /h<input v-model.number="welding.laborRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Consumable Rate /m<input v-model.number="welding.consumableRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Equipment Rate /h<input v-model.number="welding.equipmentRate" type="number" min="0" step="0.01" /></label>
+            </div>
+
+            <div v-else-if="procMode === 'machining'" class="C_input_grid">
+                <label class="C_field">Operation
+                    <select v-model="machining.operationType">
+                        <option value="milling">Milling</option>
+                        <option value="turning">Turning</option>
+                        <option value="drilling">Drilling</option>
+                        <option value="grinding">Grinding</option>
+                        <option value="cutting">Cutting</option>
+                    </select>
+                </label>
+                <label class="C_field">Material
+                    <select v-model="machining.materialType">
+                        <option value="steel">Steel</option>
+                        <option value="stainless">Stainless</option>
+                        <option value="aluminum">Aluminum</option>
+                        <option value="plastic">Plastic</option>
+                    </select>
+                </label>
+                <label class="C_field">Setup (min)<input v-model.number="machining.setupTime" type="number" min="0" step="1" /></label>
+                <label class="C_field">Quantity<input v-model.number="machining.quantity" type="number" min="1" step="1" /></label>
+                <label class="C_field">Complexity<input v-model.number="machining.complexityFactor" type="number" min="1" step="0.1" /></label>
+                <label class="C_field">Labor Rate /h<input v-model.number="machining.laborRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Tool Wear /pc<input v-model.number="machining.toolWearRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Machine Rate /h<input v-model.number="machining.machineRate" type="number" min="0" step="0.01" /></label>
+            </div>
+
+            <div v-else class="C_input_grid">
+                <label class="C_field">Components<input v-model.number="assembly.componentCount" type="number" min="1" step="1" /></label>
+                <label class="C_field">Time / Component (min)<input v-model.number="assembly.timePerComponent" type="number" min="0.1" step="0.1" /></label>
+                <label class="C_field">Complexity<input v-model.number="assembly.complexityFactor" type="number" min="1" max="3" step="0.1" /></label>
+                <label class="C_field">Inspection (min)<input v-model.number="assembly.inspectionTime" type="number" min="0" step="1" /></label>
+                <label class="C_field">Labor Rate /h<input v-model.number="assembly.laborRate" type="number" min="0" step="0.01" /></label>
+                <label class="C_field">Fixture Cost<input v-model.number="assembly.fixtureCost" type="number" min="0" step="0.01" /></label>
+            </div>
+
+            <div class="C_save_row">
+                <forge-button label="Calculate Process" @click="calcProcess" :disabled="calculating" />
+            </div>
+
+            <div v-if="procResult" class="C_results">
+                <div v-for="(v, k) in procResult" :key="k" class="C_result_row">
+                    <span class="C_result_label">{{ prettyKey(k) }}</span>
+                    <span class="C_result_value num">{{ formatVal(v) }}</span>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>

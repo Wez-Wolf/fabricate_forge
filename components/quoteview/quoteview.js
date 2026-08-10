@@ -17,9 +17,9 @@ var comp = {
             error: '',
             activeTab: 'overview',
             tabs: [
-                { tag: 'overview', name: 'Overview', svg: 'layout-dashboard' },
-                { tag: 'bom',      name: 'BOM',      svg: 'list' },
-                { tag: 'process',  name: 'Process',  svg: 'timer' },
+                { key: 'overview', tag: 'overview', name: 'Overview', svg: 'layout-dashboard' },
+                { key: 'bom',      tag: 'bom',      name: 'BOM',      svg: 'list' },
+                { key: 'process',  tag: 'process',  name: 'Process',  svg: 'timer' },
             ],
             // forge-tabs may drive via v-model; fall back to click handler
             selectedTab: 'overview',
