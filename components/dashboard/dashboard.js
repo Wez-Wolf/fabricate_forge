@@ -9,9 +9,11 @@ var comp = {
             quotes: [],
             loading: true,
             error: '',
+            currency: 'USD',
         };
     },
     created() {
+        this.loadPrefs();
         this.loadQuotes();
     },
     computed: {
@@ -66,7 +68,19 @@ var comp = {
     methods: {
         num(v) { return parseFloat(v || 0); },
         fmtMoney(v) {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(this.num(v));
+            try {
+                return new Intl.NumberFormat('en-US', { style: 'currency', currency: this.currency }).format(this.num(v));
+            } catch (e) {
+                return '$' + this.num(v).toLocaleString();
+            }
+        },
+        // Load user's preferred currency from Settings (user prefs)
+        async loadPrefs() {
+            try {
+                var res = await WEB.api('./api/user.php', { action: 'get_preferences', input: {} });
+                var data = (res && res.data) || res || {};
+                if (data.defaultCurrency) this.currency = data.defaultCurrency;
+            } catch (e) { /* keep USD default */ }
         },
         async loadQuotes() {
             this.loading = true;

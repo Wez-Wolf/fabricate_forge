@@ -10,9 +10,7 @@
     <div v-if="error" class="C_error">{{ error }}</div>
 
     <div class="C_toolbar">
-        <div class="C_search">
-            <forge-search place_holder="Search quotes..." @onSearch="onSearch" />
-        </div>
+        <forge-search class="C_search" place_holder="Search quotes..." @onSearch="onSearch" />
         <div class="C_filters">
             <span
                 v-for="s in statuses"

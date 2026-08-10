@@ -35,8 +35,12 @@ var comp = {
         this._ready = true;
     },
     methods: {
-        fmtMoney(v) {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(parseFloat(v || 0));
+        fmtMoney(v, currency) {
+            try {
+                return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(parseFloat(v || 0));
+            } catch (e) {
+                return '$' + parseFloat(v || 0).toLocaleString();
+            }
         },
         async loadQuotes() {
             this.loading = true;
@@ -70,7 +74,7 @@ var comp = {
                     x.name || 'Quote',
                     (x.data && x.data.customerName) || '—',
                     x.status || 'draft',
-                    self.fmtMoney(x.total_cost),
+                    self.fmtMoney(x.total_cost, x.data && x.data.currency),
                     x.id,
                     x, // extra slots ignored by forge-list, used by handlers
                 ];
