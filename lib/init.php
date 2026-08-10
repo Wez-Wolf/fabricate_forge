@@ -31,7 +31,8 @@ echo "}";  echo PHP_EOL;
 echo <<<'JS'
 (function(){
   // Capture the original path BEFORE initMain redirects (unconditional).
-  try { window._origPath = ROUTER.decodePath()[0] || ''; } catch(e) { window._origPath = ''; }
+  // Full path (not just the first segment) so reset-password/<token> survives.
+  try { window._origPath = ROUTER.decodePath().join('/') || ''; } catch(e) { window._origPath = ''; }
   if (typeof MAIN === 'undefined') { window._landingPending = true; return; }
   var _pp = MAIN.processPath ? MAIN.processPath.bind(MAIN) : null;
   MAIN.processPath = function(parts){
@@ -84,9 +85,10 @@ echo "    }";
 echo "    if (_pp2) _pp2(parts);";
 echo "  };";
 echo "  var c = ROUTER.decodePath();";
-echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && c.length === 1 && (window._origPath === '' || window._origPath === '/' || window._origPath === 'landing')) {";
-echo "    try { ROUTER.navigate('/landing'); } catch(e) {}";
-echo "    MAIN.setComp('landing', {});";
+echo "  var op = window._origPath || '';";
+echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && op && (op === 'landing' || op === 'forgot-password' || op.indexOf('reset-password/') === 0)) {";
+echo "    try { ROUTER.navigate('/' + op); } catch(e) {}";
+echo "    MAIN.processPath(ROUTER.decodePath());";
 echo "  }";
 echo "}";
 echo PHP_EOL;
@@ -119,9 +121,10 @@ echo "    }";
 echo "    if (_pp2) _pp2(parts);";
 echo "  };";
 echo "  var c = ROUTER.decodePath();";
-echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && c.length === 1 && (window._origPath === '' || window._origPath === '/' || window._origPath === 'landing')) {";
-echo "    try { ROUTER.navigate('/landing'); } catch(e) {}";
-echo "    MAIN.setComp('landing', {});";
+echo "  var op = window._origPath || '';";
+echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && op && (op === 'landing' || op === 'forgot-password' || op.indexOf('reset-password/') === 0)) {";
+echo "    try { ROUTER.navigate('/' + op); } catch(e) {}";
+echo "    MAIN.processPath(ROUTER.decodePath());";
 echo "  }";
 echo "}";
 echo PHP_EOL;
