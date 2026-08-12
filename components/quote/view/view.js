@@ -97,6 +97,12 @@ var comp = {
             treeData: [],
             treeOpen: {},
             treeLoading: false,
+            // tree search/filter
+            treeSearch: '',
+            filteredTreeData: [],
+            // collapse/expand state
+            treeCollapsedAll: false,
+            treeExpandedAll: false,
             materials: [],
             processTrades: ['boilermaking', 'welding', 'machining', 'painting', 'assembly', 'qualityControl', 'surfaceTreatment', 'cutting', 'drilling', 'grinding', 'bending'],
         };
@@ -104,37 +110,58 @@ var comp = {
     components: {
         'tree-node': {
             name: 'tree-node',
-            props: ['node', 'depth', 'open', 'fmt', 'abbr', 'costOf', 'massOf', 'materialOf', 'processOf'],
+            props: ['node', 'depth', 'open', 'fmt', 'abbr', 'costOf', 'massOf', 'materialOf', 'processOf', 'treeSearch', 'warnOf', 'kindOf'],
             template: '<div class="C_tree_row" :style="{ paddingLeft: (depth * 22) + \'px\' }">' +
-                '<div class="C_node_row" @click="edit()">' +
+                // search highlight
+                '<span v-if="treeSearch && treeSearch.length > 0" class="C_tree_search_highlight" v-if="nodeName.includes(treeSearch)" style="color: var(--color-primary); background: var(--color-primary-light); padding: 0 1px; border-radius: 2px; font-size: 0.7rem;">·</span>' +
+                '<div class="C_node_row" @click="edit()" @keydown.enter="onEnter" tabindex="0" aria-label="Edit {{ nodeName }} (Enter)">' +
                 '<span v-if="hasChildren" class="C_node_expand" @click.stop="toggle()">{{ open[node.id] ? \'▼\' : \'▶\' }}</span>' +
                 '<span v-else class="C_node_expand"></span>' +
+                // depth indicator
+                '<span v-if="depth > 0" class="C_node_depth" title="Depth {{ depth }} of hierarchy">{{ depth }}</span>' +
                 '<span class="C_node_badge" :class="\'t-\' + node.type">{{ abbr(node.type) }}</span>' +
-                '<span class="C_node_name">{{ node.name }}</span>' +
+                '<span class="C_node_name" :title="nodeName">{{ nodeName }}</span>' +
                 '<span class="C_node_type">({{ node.type }})</span>' +
                 '<span class="C_qty" :class="{ C_qty_one: !(node.quantity > 1) }">×{{ node.quantity }}</span>' +
                 '<span class="C_node_mass num" v-if="massOf(node) > 0">{{ massOf(node) }} kg</span>' +
-                '<span class="C_node_cost num">{{ fmt(costOf(node)) }}</span>' +
+                '<span class="C_node_cost num">' +
+                '<span v-if="hasWarning" class="C_node_warning" title="Cost or material issues detected">⚠</span>' +
+                '{{ fmt(costOf(node)) }}' +
+                '</span>' +
                 '</div>' +
-                // per-node detail line: material + process hours
-                '<div class="C_node_detail">' +
+                // per-node detail line: kind + material + process hours + weld info
+                '<div class="C_node_detail" title="Material: {{ materialOf(node) || \'none\' }} | Process: {{ processOf(node) || \'none\' }}">' +
+                '<span v-if="kindOf(node)" class="C_node_kind">{{ kindOf(node) }}</span>' +
                 '<span v-if="materialOf(node)" class="C_node_mat">{{ materialOf(node) }}</span>' +
                 '<span v-else class="C_node_mat C_muted">no material</span>' +
                 '<span class="C_node_proc">{{ processOf(node) }}</span>' +
                 '</div>' +
                 '<div v-if="hasChildren && open[node.id]" class="C_tree_children">' +
-                '<tree-node v-for="c in node.children" :key="c.id" :node="c" :depth="depth + 1" :open="open" :fmt="fmt" :abbr="abbr" :cost-of="costOf" :mass-of="massOf" :material-of="materialOf" :process-of="processOf" @edit="edit($event)" @toggle="toggle($event)" />' +
+                '<tree-node v-for="c in node.children" :key="c.id" :node="c" :depth="depth + 1" :open="open" :fmt="fmt" :abbr="abbr" :cost-of="costOf" :mass-of="massOf" :material-of="materialOf" :process-of="processOf" :treeSearch="treeSearch" :warn-of="warnOf" :kind-of="kindOf" @edit="edit($event)" @toggle="toggle($event)" />' +
                 '</div>' +
                 '</div>',
             computed: {
                 hasChildren() { return this.node.children && this.node.children.length; },
+                nodeName() { return this.node.name || this.node.item_number || ''; },
+                // has any warnings (zero-cost, missing material, etc.)
+                hasWarning() {
+                    if (typeof this.warnOf === 'function') {
+                        var w = this.warnOf(this.node);
+                        return w && w.length > 0;
+                    }
+                    return false;
+                },
             },
+            // filtered tree data (search-aware) — NOT used by tree-node;
+            // the parent quoteview computes filteredTreeData via filterTree()
             methods: {
                 // n === undefined → called from own row click (use own node);
                 // n set → re-emit the CHILD's node from the recursive handler
                 // (fixes edit opening the parent's entity instead of the child's).
                 toggle(n) { this.$emit('toggle', n === undefined ? this.node : n); },
                 edit(n) { this.$emit('edit', n === undefined ? this.node : n); },
+                // handle Enter key on tree node
+                onEnter() { this.edit(); },
             },
         },
     },
@@ -142,6 +169,21 @@ var comp = {
         // Reload the tree when entities change (post-edit/import)
         entitiesLen(nv, ov) {
             if (nv !== ov) this.loadTree();
+        },
+        // tab_url is set by nav.resolveRoute() AFTER a 300ms defer (to outlast
+        // forge-nav's own tabUrl watcher). When navigating from the quotes list,
+        // quoteview mounts with tab_url='quotes' (no ID) → created() runs with
+        // an empty quoteId. This watcher catches the prop update and loads the
+        // quote properly. Without it: clicking a quote from the list shows nothing;
+        // only page reload works.
+        tab_url(nv, ov) {
+            if (nv === ov) return;
+            var parts = (nv || '').split('/');
+            var newId = (parts[1] || parts[0] || '').trim();
+            if (newId && newId !== this.quoteId && newId !== 'quotes') {
+                this.quoteId = newId;
+                this.load();
+            }
         },
     },
     created() {
@@ -500,7 +542,7 @@ var comp = {
                 .then(function (res) {
                     var suppliers = (res && res.data) || res || [];
                     POPUP.show('Send to Suppliers', {
-                        comp: 'takeoffsplit',
+                        comp: 'takeoff-split',
                         props: { groups: self.takeoffGroups, suppliers: suppliers, quote: self.quote },
                         class_body: 'popup_body_lg',
                         events: {
@@ -657,7 +699,7 @@ var comp = {
         openPrefabPicker() {
             var self = this;
             POPUP.show('Add from Prefab', {
-                comp: 'prefabpicker',
+                comp: 'prefab-picker',
                 props: { is_select: true },
                 class_body: 'popup_body_lg',
                 events: {
@@ -689,7 +731,7 @@ var comp = {
         openBatchAdd() {
             var self = this;
             POPUP.show('Add Items', {
-                comp: 'quoteitems',
+                comp: 'quote-items',
                 props: {},
                 class_body: 'popup_body_lg',
                 events: {
@@ -891,6 +933,7 @@ var comp = {
                 });
                 var tree = (res && res.data) || res || {};
                 this.treeData = tree.children || [];
+                this.filteredTreeData = this.treeData;
                 // expand the first two levels by default — replace the WHOLE
                 // object: $set on keys is not enough because the recursive
                 // tree-node receives `open` as a PROP and Vue 2 diff is
@@ -915,6 +958,68 @@ var comp = {
             var open = Object.assign({}, this.treeOpen);
             open[node.id] = !open[node.id];
             this.treeOpen = open;
+        },
+        // ── tree control methods ─────────────────────────────
+        collapseAll() {
+            this.treeCollapsedAll = true;
+            this.treeExpandedAll = false;
+            // set all nodes collapsed
+            var open = {};
+            this._collapseAll(this.treeData, open);
+            this.treeOpen = open;
+        },
+        expandAll() {
+            this.treeCollapsedAll = false;
+            this.treeExpandedAll = true;
+            // set all nodes expanded
+            var open = {};
+            this._expandAll(this.treeData, open);
+            this.treeOpen = open;
+        },
+        _collapseAll(nodes, open, depth) {
+            if (!nodes) return;
+            depth = depth || 0;
+            for (var i = 0; i < nodes.length; i++) {
+                var n = nodes[i];
+                open[n.id] = false;
+            }
+            for (var j = 0; j < nodes.length; j++) {
+                if (nodes[j].children && nodes[j].children.length) {
+                    this._collapseAll(nodes[j].children, open, depth + 1);
+                }
+            }
+        },
+        _expandAll(nodes, open, depth) {
+            if (!nodes) return;
+            depth = depth || 0;
+            for (var i = 0; i < nodes.length; i++) {
+                var n = nodes[i];
+                open[n.id] = true;
+            }
+            for (var j = 0; j < nodes.length; j++) {
+                if (nodes[j].children && nodes[j].children.length) {
+                    this._expandAll(nodes[j].children, open, depth + 1);
+                }
+            }
+        },
+        filterTree() {
+            if (!this.treeSearch) {
+                this.filteredTreeData = this.treeData;
+                return;
+            }
+            var search = this.treeSearch.toLowerCase();
+            // recursive filter: keep node if match or has matching descendant
+            function keepNode(n) {
+                var match = n.name && n.name.toLowerCase().includes(search);
+                var hasMatch = false;
+                if (!match && n.children) {
+                    hasMatch = n.children.some(keepNode);
+                }
+                return match || hasMatch;
+            }
+            this.filteredTreeData = this.treeData.filter(keepNode);
+            // reset open state for filtered nodes
+            this.treeOpen = {};
         },
         // ── per-node enrichment (material + process) ──────
         // Material label from the entity's material component + library row.
@@ -957,36 +1062,84 @@ var comp = {
             });
             return parts.length ? parts.join(' · ') : '—';
         },
+        // Kind abbreviation for tree node (pipe/fitting/flange/material)
+        kindOf(node) {
+            if (!node || !node.id) return '';
+            var e = this.entityById(node.id);
+            if (!e) return '';
+            var costComp = this.findComponent(e, 'cost');
+            if (!costComp) return '';
+            var kind = (costComp.data && costComp.data.kind) || '';
+            if (!kind) return '';
+            var map = { pipe: 'pipe', flange: 'flange', fitting: 'fitting', material: 'mat' };
+            return map[kind] || '';
+        },
         entityById(id) {
             for (var i = 0; i < this.entities.length; i++) {
                 if (this.entities[i].id === id) return this.entities[i];
             }
             return null;
         },
+        // Roll-up cost for a tree node: for assemblies, sum children's costs × qty.
+        // For leaf nodes, return the entity's own cost.
         treeCost(node) {
             if (!node || !node.id) return 0;
-            for (var i = 0; i < this.entities.length; i++) {
-                if (this.entities[i].id === node.id) {
-                    return (this.entities[i].cost && this.entities[i].cost.total) || 0;
-                }
+            var e = this.entityById(node.id);
+            if (!e) return 0;
+            var ownCost = (e.cost && e.cost.total) || 0;
+            var children = (e.children || node.children || []);
+            if (!children || !children.length) return ownCost;
+            // assembly: roll up child totals × child quantity
+            var rolled = 0;
+            for (var i = 0; i < children.length; i++) {
+                var childCost = this.treeCost(children[i]);
+                var childQty = children[i].quantity || 1;
+                rolled += childCost * childQty;
             }
-            return 0;
+            return ownCost + rolled;
         },
-        // Rolled-up mass for a tree node (assembly = Σ linked entities × qty)
+        // Roll-up mass for a tree node: assembly = Σ child mass × qty + own mass
         treeMass(node) {
             if (!node || !node.id) return 0;
-            for (var i = 0; i < this.entities.length; i++) {
-                if (this.entities[i].id === node.id) {
-                    var c = this.entities[i].cost || {};
-                    var m = c.rolled_mass_kg != null ? c.rolled_mass_kg : c.massKg;
-                    return parseFloat(m) || 0;
+            var e = this.entityById(node.id);
+            if (!e) return 0;
+            var c = e.cost || {};
+            var ownMass = c.rolled_mass_kg != null ? c.rolled_mass_kg : (c.massKg || 0);
+            ownMass = parseFloat(ownMass) || 0;
+            var children = (e.children || node.children || []);
+            if (!children || !children.length) return ownMass;
+            var rolled = 0;
+            for (var i = 0; i < children.length; i++) {
+                var childMass = this.treeMass(children[i]);
+                var childQty = children[i].quantity || 1;
+                rolled += childMass * childQty;
+            }
+            return ownMass + rolled;
+        },
+        // WARNING check for a tree node: zero cost, missing material
+        nodeWarnings(node) {
+            if (!node || !node.id) return [];
+            var e = this.entityById(node.id);
+            if (!e) return [];
+            var warnings = [];
+            var cost = (e.cost && e.cost.total) || 0;
+            if (cost <= 0) warnings.push({ type: 'zero-cost', msg: 'No cost calculated' });
+            var mat = this.findComponent(e, 'material');
+            if (!mat) {
+                if (e.type === 'part' || e.type === 'assembly') {
+                    warnings.push({ type: 'no-material', msg: 'Missing material' });
                 }
             }
-            return 0;
+            return warnings;
         },
         abbr(type) {
             var m = { assembly: 'A', part: 'P', fastener: 'F', quote: 'Q' };
             return m[type] || (type ? type[0].toUpperCase() : '?');
+        },
+        // NEW: kind abbreviation for tree detail line
+        kindAbbr(kind) {
+            var map = { pipe: 'pipe', flange: 'flange', fitting: 'fitting', material: 'mat', unknown: '' };
+            return map[kind] || map.unknown;
         },
         // ── Entity editor ────────────────────────────────
         async loadMaterials() {

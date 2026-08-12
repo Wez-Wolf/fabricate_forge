@@ -1,6 +1,6 @@
 /**
- * components/edititem — Edit Item form (POPUP body) for quoteview.
- * Replaces the forge-form popup: name/type/qty + materialselect
+ * components/edititem — Edit Item form (POPUP body) for quote-view.
+ * Replaces the forge-form popup: name/type/qty + material-select
  * (searchable library picker) + dimensions + material variables
  * (butt welds, cost R/m, R/ea, shop handling, weld size, pipe WT)
  * + paint & lining (in-house / sub-contract, coatings 1-4, transport)
@@ -19,7 +19,7 @@ var comp = {
         return {
             kind: '',            // 'pipe' | 'flange' | 'fitting' | 'material'
             materials: [],       // library rows (to resolve kind on load)
-            // Declarative type list — same options as quoteitems/Add Item.
+            // Declarative type list — same options as quote-items/Add Item.
             typeOptions: [
                 { v: 'part', label: 'Part' },
                 { v: 'assembly', label: 'Assembly' },

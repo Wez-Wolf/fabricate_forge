@@ -1,7 +1,7 @@
 /**
- * components/materialselect — searchable material picker (clientselect pattern).
+ * components/materialselect — searchable material picker (client-select pattern).
  * Wraps forge-select; clicking opens a POPUP with a searchable material list
- * (materiallist). Emits the picked material object via v-model / input.
+ * (material-list). Emits the picked material object via v-model / input.
  */
 var comp = {
     mixins: [COMP.base],
@@ -17,7 +17,7 @@ var comp = {
         popupSub() {
             var self = this;
             return {
-                comp: 'materiallist',
+                comp: 'material-list',
                 props: { is_select: true },
                 class_body: 'C_sub',
                 events: {

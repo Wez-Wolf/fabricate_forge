@@ -139,11 +139,11 @@ var comp = {
             this.edit(null);
         },
         // Material editor: full specs + kind variables + supplier pricing
-        // (global AND user materials) via the materialedit component.
+        // (global AND user materials) via the material-edit component.
         edit(mat) {
             var self = this;
             POPUP.show((mat ? 'Edit Material' : 'New Material'), {
-                comp: 'materialedit',
+                comp: 'material-edit',
                 props: { material: mat || null, suppliers: this.suppliers },
                 class_body: 'popup_body_lg',
                 events: {

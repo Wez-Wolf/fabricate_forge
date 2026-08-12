@@ -147,7 +147,7 @@ var comp = {
         openNew() {
             var self = this;
             POPUP.show('New Quote', {
-                comp: 'quoteform',
+                comp: 'quote-form',
                 props: {},
                 events: {
                     submit: function (form) {

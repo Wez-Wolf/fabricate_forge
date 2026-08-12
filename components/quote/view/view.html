@@ -243,31 +243,43 @@
                     <h2>Entity Hierarchy Tree</h2>
                     <span class="C_hint">Click an item to edit — click the arrow to expand/collapse.</span>
                 </div>
+                <!-- tree control bar -->
                 <div v-if="treeLoading" class="C_loading">
                     <forge-loader variant="dots" label="Loading tree..." />
                 </div>
-                <div v-else-if="!treeData.length" class="C_empty">
-                    <p>No entity hierarchy yet.</p>
-                    <p class="C_hint">Add items or import a BOM to build the tree.</p>
-                    <forge-button label="Add Item" @click="openAddEntity" />
-                </div>
-                <div v-else class="C_tree">
-                    <tree-node
-                        v-for="n in treeData"
-                        :key="n.id"
-                        :node="n"
-                        :depth="0"
-                        :open="treeOpen"
-                        :fmt="fmtMoney"
-                        :abbr="abbr"
-                        :cost-of="treeCost"
-                        :mass-of="treeMass"
-                        :material-of="materialOf"
-                        :process-of="processOf"
-                        @edit="editEntity"
-                        @toggle="toggleTree"
-                    />
-                </div>
+                <template v-else>
+                    <div v-if="treeData.length > 0" class="C_toolbar">
+                        <forge-button @click="collapseAll" cls="ghost">Collapse All</forge-button>
+                        <forge-button @click="expandAll" cls="ghost">Expand All</forge-button>
+                        <forge-input v-model="treeSearch" cls="C_input_sm" placeholder="Search tree..." @input="filterTree" :icon="'search'" />
+                        <span v-if="treeSearch.length > 0" class="C_hint">Esc to clear | ⏎ Edit</span>
+                    </div>
+                    <div v-if="treeData.length > 0" class="C_tree">
+                        <tree-node
+                            v-for="n in filteredTreeData"
+                            :key="n.id"
+                            :node="n"
+                            :depth="0"
+                            :open="treeOpen"
+                            :fmt="fmtMoney"
+                            :abbr="abbr"
+                            :cost-of="treeCost"
+                            :mass-of="treeMass"
+                            :material-of="materialOf"
+                            :process-of="processOf"
+                            :treeSearch="treeSearch"
+                            :warn-of="nodeWarnings"
+                            :kind-of="kindOf"
+                            @edit="editEntity"
+                            @toggle="toggleTree"
+                        />
+                    </div>
+                    <div v-else class="C_empty">
+                        <p>No entity hierarchy yet.</p>
+                        <p class="C_hint">Add items or import a BOM to build the tree.</p>
+                        <forge-button label="Add Item" @click="openAddEntity" />
+                    </div>
+                </template>
             </div>
         </div>
 

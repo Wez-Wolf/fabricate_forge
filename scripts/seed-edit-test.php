@@ -1,6 +1,6 @@
 <?php
 /**
- * scripts/seed-edit-test.php — dev fixture for the quoteview edit dialog.
+ * scripts/seed-edit-test.php — dev fixture for the quote-view edit dialog.
  * Seeds: assembly+child, material-only part, process-only part, plain part
  * (both) — used to verify type-aware editing (assemblies / parts / material /
  * processes). Run: php scripts/seed-edit-test.php [email]

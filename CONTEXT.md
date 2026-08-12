@@ -3,24 +3,50 @@
 # Auto-scanned: 2026-08-12
 
 project: fabricate_forge
-framework: unknown
+framework: Forge (Vue 2.6 + PHP)
 root: /var/www/html/fabricate_forge
+  forge_path: /var/www/html/forge (from .env FORGE_PATH)
   icm: ./CONTEXT.md
 
 entry_points:
-  - index.php: PHP entry
-  - comp.php: component resolver -> core/php/comp.php
+  - index.php: SPA shell (`<div id="main" start_comp="nav" default_tab="dashboard">`)
+  - comp.php: component resolver proxy → forge/php/comp.php
+  - bootstrap.php: session hardening + security headers
+
+routes:
+  - /landing: public welcome (welcome-first; nav.js redirects unauth here)
+  - /login, /signup: forge auth components (forge/components/auth/)
+  - /join: onboard component (invite-link signup via team.preview_invite)
+  - /forgot-password: forgot component → auth.forgot_password
+  - /reset-password/<token>: reset component → auth.reset_password
+  - /nav/<tab>[/<id>]: authed shell; quote detail is /nav/quotes/<id> → quote-view (setPage)
 
 tree:
   - api/
+    - _base.php
     - admin.php
     - auth.php
-    - _base.php
     - boms.php
     - clients.php
     - components.php
     - cost.php
     - entities.php
+    - links.php
+    - materials.php
+    - orders.php
+    - prefabs.php
+    - process.php
+    - procurement.php
+    - production.php
+    - quotes.php
+    - rates.php
+    - reports.php
+    - suppliers.php
+    - systems.php
+    - team.php
+    - tools.php
+    - user.php
+    - weldmodel.php
   - assets/
   - components/
     - about/
@@ -31,18 +57,19 @@ tree:
       - admin.css
       - admin.html
       - admin.js
-    - clientlist/
-      - clientlist.css
-      - clientlist.html
-      - clientlist.js
+    - client/
+      - list/
+        - list.css
+        - list.html
+        - list.js
     - clients/
       - clients.css
       - clients.html
       - clients.js
-    - clientselect/
-      - clientselect.css
-      - clientselect.html
-      - clientselect.js
+      - select/
+        - select.css
+        - select.html
+        - select.js
     - dashboard/
       - dashboard.css
       - dashboard.html
@@ -84,18 +111,19 @@ tree:
       - tube/
         - tube.html
         - tube.js
-    - materialedit/
-      - materialedit.css
-      - materialedit.html
-      - materialedit.js
-    - materiallist/
-      - materiallist.css
-      - materiallist.html
-      - materiallist.js
-    - materialselect/
-      - materialselect.css
-      - materialselect.html
-      - materialselect.js
+    - material/
+      - edit/
+        - edit.css
+        - edit.html
+        - edit.js
+      - list/
+        - list.css
+        - list.html
+        - list.js
+      - select/
+        - select.css
+        - select.html
+        - select.js
     - nav/
       - nav.css
       - nav.html
@@ -108,10 +136,11 @@ tree:
       - orders.css
       - orders.html
       - orders.js
-    - prefabpicker/
-      - prefabpicker.css
-      - prefabpicker.html
-      - prefabpicker.js
+    - prefab/
+      - picker/
+        - picker.css
+        - picker.html
+        - picker.js
     - prefabs/
       - prefabs.css
       - prefabs.html
@@ -124,22 +153,23 @@ tree:
       - production.css
       - production.html
       - production.js
-    - quoteform/
-      - quoteform.css
-      - quoteform.html
-      - quoteform.js
-    - quoteitems/
-      - quoteitems.css
-      - quoteitems.html
-      - quoteitems.js
+    - quote/
+      - form/
+        - form.css
+        - form.html
+        - form.js
+      - items/
+        - items.css
+        - items.html
+        - items.js
+      - view/
+        - view.css
+        - view.html
+        - view.js
     - quotes/
       - quotes.css
       - quotes.html
       - quotes.js
-    - quoteview/
-      - quoteview.css
-      - quoteview.html
-      - quoteview.js
     - reports/
       - reports.css
       - reports.html
@@ -156,10 +186,11 @@ tree:
       - suppliers.css
       - suppliers.html
       - suppliers.js
-    - takeoffsplit/
-      - takeoffsplit.css
-      - takeoffsplit.html
-      - takeoffsplit.js
+    - takeoff/
+      - split/
+        - split.css
+        - split.html
+        - split.js
     - tools/
       - tools.css
       - tools.html
@@ -187,7 +218,15 @@ tree:
     - get_sheet_names.py
     - get_sheets.py
     - import-boq-quote.php
+    - purge-test-data.sql
     - seed-edit-test.php
+    - seed-materials.php
+    - seed-prefabs.php
+    - seed-test-quote.php
+    - setup-5-mock-quotes.php
+    - test-cost-engine.php
+    - test-mock-estimation.php
+    - xlsx_to_md.js
   - seed-data/
     - fasteners.json
     - fittings.json
@@ -219,11 +258,11 @@ file_counts:
 
 symbols:
   components:
-    (none detected)
+    - nav (shell), dashboard, quotes, quote-view, quote-form, quote-items, edititem, clients, client-select, client-list, suppliers, library (+sub-tables), tools, prefabs, orders, procurement, production, reports, settings, about, admin, onboard, forgot, reset, landing, takeoff-split
   api_endpoints:
-    (none detected)
+    - admin.php, auth.php, team.php, _base.php, boms.php, clients.php, components.php, cost.php, entities.php, links.php, materials.php, orders.php, prefabs.php, process.php, procurement.php, production.php, quotes.php, rates.php, reports.php, suppliers.php, systems.php, tools.php, user.php, weldmodel.php
   tables:
-    (none detected)
+    - auth, user, user_prefs, password_reset, team, team_member, pending_invite, entity, component, link, client, supplier, company_settings, material_library, order, prefab_template, prefab_instance, purchase_order, supplier_quote, received_goods, production_record, production_variance
 
 design_system:
   colors:
@@ -263,16 +302,19 @@ key_files:
 - **Link** — relationship between two entities: contains (parent→child, the BOM edge), references, suppliedBy, uses, dependsOn, relatedTo. Carries a quantity.
 - **BOM** — bill of materials = the `contains` link tree rooted at a quote/assembly. Tree tab renders it recursively; cost rolls up children.
 - **Prefab** — reusable assembly template (prefab_template). Instantiate = copy its ECS tree into a quote (with server-side recalc); Bake = save a quote's assembly as a template.
-- **Cost columns (12)** — material, boilerHrs, weldHrs, machHrs, labor, consumables, services, ndt, lining, paint, transport, total. The quoteview overview grid + reports key on these.
+- **Cost columns (12)** — material, boilerHrs, weldHrs, machHrs, labor, consumables, services, ndt, lining, paint, transport, total. The quote-view overview grid + reports key on these.
 - **Trade** — process discipline the cost engine prices: boilermaking, welding, machining, painting, assembly, qualityControl, surfaceTreatment, cutting, drilling, grinding, bending.
 - **Margin** — quote.data.marginPercent → user_prefs.defaultMarkupPercent → default chain; per-entity override via entity.data.marginPercent.
 - **Procurement docs** — Purchase Order (po), Supplier Quote (sq, against a material), Received Goods (rg). Form a simple 3-table purchasing flow.
 - **Production record** — actual vs estimated hours per entity+trade; variance rows derived at record time.
+- **Team** — grouping of users via invite (team.php). Owner creates teams; invite by email → existing user auto-joins, new signup auto-joins via invite_code. One team per user. Powers the onboard/join flow.
+- **Supplier** — material supplier (supplier table). Linked to material_library rows; used in the take-off split to generate per-supplier RFQ CSVs/PDFs.
 
 ## Architecture decisions (ADRs)
 
 - **ECS data model kept from Meteor** — entity/component/link with uniform `(id, type, data JSONB, owner)` shape; generic handlers. Hard to reverse (every table/endpoint builds on it).
 - **Real-time dropped** — no DDP/websockets in the port; REST + orchestration endpoints (systems.load_quote = one call for quote+entities+costs+totals). Plan doc's DDP mapping is legacy, never implemented.
-- **Server-side cost math** — calculators (tools.php) and quote costs (cost.php) share one engine so tool results always equal quote numbers.
-- **Quote detail is a page, not a tab** — /nav/quotes/<id> mounts quoteview via forge-nav.setPage; nav re-resolves on onPathChange so back/forward restores the list.
+- **Server-side cost math** — calculators (tools.php) and quote costs (cost.php) share one engine so tool results always equal quote numbers. Weld math lives in `api/weldmodel.php` (pure static class, no DB).
+- **Quote detail is a page, not a tab** — /nav/quotes/<id> mounts quote-view via forge-nav.setPage; nav re-resolves on onPathChange so back/forward restores the list.
 - **dispatchIfEntry guard** — cross-endpoint includes (quotes→systems→cost) never double-dispatch; each file dispatches only as the HTTP entry.
+- **Team / invite model** — teams (team.php) group users; invite flow is cookie-free for explicit links but uses `fab_invite` cookie as a fallback. Owner-only mutation; preview is public for the landing page.

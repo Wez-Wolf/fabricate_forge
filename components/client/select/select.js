@@ -18,7 +18,7 @@ var comp = {
         popupSub() {
             var self = this;
             return {
-                comp: 'clientlist',
+                comp: 'client-list',
                 props: { is_select: true },
                 class_body: 'C_sub',
                 events: {

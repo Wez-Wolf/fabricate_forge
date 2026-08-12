@@ -3,7 +3,7 @@
 > **Relationship to MAP.md:** MAP.md = structure (where things live, who calls what). LOGIC.md = behavior (what happens at runtime, why, invariants, failure modes). Every claim is anchored `file:line` and marked ✅ live-verified (browser/HAR/DB), 🟡 static-traced (code read), ⚠️ drift (code ≠ docs).
 >
 > **Live runs:** 2026-08-10 — Scenario 1 (auth+quote lifecycle) via curl, Scenario 2 (BOM import) via curl+psql, Scenario 3 (prefab instantiate) via curl+psql, Scenario 5 (UI chain) via agent-browser HAR (101 requests).
-> **⚠️ Active WIP during capture:** api/cost.php was edited with new weld/pipe model + api/weldmodel.php (uncommitted), seed-data/fittings.json grew +38k lines, materials.php/library.js/materiallist.js edited, edititem.js/html +quoteview.js extended (+185 lines). The live-verified numbers below are from the POST-edit engine.
+> **⚠️ Active WIP during capture:** api/cost.php was edited with new weld/pipe model + api/weldmodel.php (uncommitted), seed-data/fittings.json grew +38k lines, materials.php/library.js/materiallist.js edited, edititem.js/html +quote/view/view.js extended (+185 lines). The live-verified numbers below are from the POST-edit engine.
 
 ## 0. The overlay at a glance
 
@@ -29,6 +29,7 @@ handler → PgCrud (Postgres) → JSON response
 ```
 
 - **No DDP / websockets anywhere.** Plan doc's DDP section is legacy Meteor; the port is pure request/response. Cross-component chatter = Vue root events only (`user-updated`, `onPathChange`). ✅ verified by grep (zero ddp refs) + HAR (only REST POSTs).
+- **boms.php integration in quote-view:** `handle_compat` walks the BOM for pipe↔flange/fitting size mismatches and suggests library flanges; `handle_takeoff` groups all quote materials by category for supplier RFQ export. `handle_calculate` is an orchestration shortcut that calls `systems.load_quote` (alias for the same orchestration).
 
 ## 1. Cross-cutting runtime
 
@@ -42,6 +43,7 @@ handler → PgCrud (Postgres) → JSON response
 - Every business row carries `user_id_owner` (entity/component/link/client/order/material_library/prefabs/PO/SQ/RG/production…). Reads/writes are scoped `WHERE … user_id_owner = $user` in every handler. ✅ curl-verified: user B loading user A's quote → `{"error":"Quote not found.","error_code":404}` (silent 404, not 403).
 - Global/read-only rows use `user_id_owner IS NULL` — material_library seed rows (prefabs.php:70,83; cost.php getLibraryMaterial). 🟡
 - user_prefs keyed by `user_id` (not owner); company_settings by `user_id_owner UNIQUE` (rates.php buildTable).
+- **Team model** (api/team.php): `team.owner_id`, `team_member(team_id, user_id)`, `pending_invite(team_id, email)`. One team per user enforced on join. `preview_invite` is public; all other actions require auth + ownership.
 
 ### Cost component as write-behind cache
 - cost.php READ components → COMPUTE → WRITE 'cost' component (upsert via jsonb merge, cost.php:436 `upsertCostComponent`). UI never recomputes; it reads the written component. 🟡 + ✅ (DB shows cost comp row written for test entity).
@@ -144,8 +146,8 @@ handler → PgCrud (Postgres) → JSON response
 - **NEW:** `transportPerTon` — rate R/ton applied
 
 ### S5 — UI chain ✅ (agent-browser HAR)
-Logged-in shell (`/nav/dashboard`) → Quotes tab → click "LOGIC test quote" row → quoteview detail renders (status approved, customer, currency, margin; Overview tab 12-col cost grid; Import BOM / Add Items / Add Item / From Prefab / Export PDF buttons).
-HAR API calls: `user.php get_preferences` ×5, `systems.php list_quotes` ×3, `systems.php load_quote` ×1, `links.php tree` ×1, `clients.php list` ×1. Matches quoteview.js `load()` + `loadTree()` + quoteform's client list. Route `/nav/quotes/<id>` handled by nav.js `resolveRoute` → `forge-nav.setPage('quoteview')` (nav.js:157-172). ✅
+Logged-in shell (`/nav/dashboard`) → Quotes tab → click "LOGIC test quote" row → quote-view detail renders (status approved, customer, currency, margin; Overview tab 12-col cost grid; Import BOM / Add Items / Add Item / From Prefab / Export PDF buttons; Materials tab groups take-off by supplier; Checks tab runs pipe↔flange compat).\n**Navigation timing fix:** nav.js `resolveRoute()` defers `setPage('quote-view', {tab_url})` by 300ms (to outlast forge-nav's tabUrl watcher). quote-view mounts with `tab_url='quotes'` (no ID yet), so `created()` runs with empty `quoteId`. A **tab_url watcher** catches the prop update after 300ms, sets `quoteId`, and calls `load()`. Without this watcher, SPA navigation from the quotes list showed nothing — only page reload worked (URL already correct at mount time on reload).
+HAR API calls: `user.php get_preferences` ×5, `systems.php list_quotes` ×3, `systems.php load_quote` ×1, `links.php tree` ×1, `clients.php list` ×1. Opening the Materials/checks tabs adds `boms.php compat`/`boms.php takeoff` + `suppliers.php list`. Matches quote/view/view.js `load()` + `loadTree()` + quote-form's client list. Route `/nav/quotes/<id>` handled by nav.js `resolveRoute` → `forge-nav.setPage('quote-view')` (nav.js:157-172). ✅
 
 ## 3. State machines (extracted)
 
@@ -164,7 +166,7 @@ HAR API calls: `user.php get_preferences` ×5, `systems.php list_quotes` ×3, `s
 
 ## 4. Data transformations
 
-### load_quote payload → quoteview UI (systems.php:36-80 → quoteview.js:246-260)
+### load_quote payload → quote-view UI (systems.php:36-80 → quote/view/view.js:246-260)
 ```
 quote    → header (name, status, customerName, currency, marginPercent)
 entities → BOM grid rows: {id, name, type, quantity, data(onCosts/marginPercent), cost{}, components[]}
@@ -173,12 +175,18 @@ totals   → per-column Σ across entities (material, boilerHrs/weldHrs/machHrs,
 margin_percent → resolveQuoteMargin: quote.data.marginPercent → user_prefs.defaultMarkupPercent → 30
 total_cost → persisted back into quote's cost component (systems.php:197-212)
 ```
-- Cost grid columns = costColumns (quoteview.js:28-44): Mat/Bm hrs/W hrs/M hrs/Lab/Cons/Serve/NDT/Lining/Paint/Transport/Total. Hours columns show hours; money columns currency-formatted.
+- Cost grid columns = costColumns (quote/view/view.js:28-44): Mat/Bm hrs/W hrs/M hrs/Lab/Cons/Serve/NDT/Lining/Paint/Transport/Total. Hours columns show hours; money columns currency-formatted.
 - **Quantity is applied INSIDE cost** (cost.php multiplies each layer × qty) — totals are simple Σs, never re-multiplied (systems.php:65-77 comment).
 - **NEW:** Cost grid now also shows `weldHrs` (in addition to/Bm/W) and `painting` column (same visual as paint when configured).
 
 ### BOM row → ECS graph (boms.php:70-147)
 `item_number, description, material, quantity, length, width, thickness` → entity(type=detect(description), name=description, quantity) + optional material comp (match score ≥0.3) + contains link (parent by item-number prefix).
+
+### Quote materials take-off → RFQ (boms.takeoff → quote-view Materials tab)
+`boms.takeoff(quote_id)` → loads all entities + material/cost components + library rows for the quote → groups by category (Plates & Sheets, Sections & Bars, Pipe, Tube, Fittings, Flanges, Fasteners, Other) → each material carries `{name, grade, dims, unit, qty, unit_cost, extended_cost, qty_kg, qty_m, qty_ea}` → totals `{total_mass_kg, total_cost, distinct}` → `takeoff-split` component assigns a supplier to each group and downloads one CSV/PDF per supplier.
+
+### Pipe ↔ flange compat check (boms.compat → quote-view Checks tab)
+`boms.compat(quote_id)` → walks the BOM tree from the quote root → for each PIPE entity, checks flanges/fittings linked underneath → `issues: [{type:'mismatch'|'missing', pipe, pipe_dn, child, child_dn, message}]` + `suggestions: [{pipe, pipe_dn, flanges:[{id,name,dn,rating}]}]` → UI lets user click a suggestion to add the flange entity under the pipe.
 
 ## 5. Invariants & rules catalog
 
@@ -213,8 +221,10 @@ total_cost → persisted back into quote's cost component (systems.php:197-212)
 | load_quote on non-quote entity | systems.php:41 | 404 "Quote not found." |
 | recalc failure during instantiate | prefabs.php:306 | swallowed — instance still created, `total_cost:null`, no error to UI |
 | A36-style searches | materials.php match | `[]` — empty results indistinguishable from "no such material" |
-| CSV/textarea parse | quoteview.js parseBomRows | malformed lines skipped silently; empty input → toast "No valid rows to import" |
+| CSV/textarea parse | quote/view/view.js parseBomRows | malformed lines skipped silently; empty input → toast "No valid rows to import" |
 | recalc clears cost comps for ALL quote entities, incl. those without inputs | systems.php:150-160 | cost comps deleted then rewritten — fine, but a mid-crash leaves quotes without cached totals (recovered on next load) |
+| **NEW:** boms.takeoff on empty quote | boms.php handle_takeoff | returns `{materials:[],totals:{...0},error:'Quote has no items.'}` — no crash |
+| **NEW:** compat finds missing flanges | boms.php handle_compat | suggestions populated from library; user can click to add — no auto-insert
 | **NEW:** Weld size too large for wall thickness | api/weldmodel::weldSizeFor | returns largest size (50mm) if WT exceeds range; no error surfaced |
 | **NEW:** Paint silently zero when extArea=0 and paint not configured | cost.php paint derivation | `paint` stays 0; no warning if user expects auto-estimation |
 | **NEW:** Default on-costs not applied when paint IS configured | cost.php:361 | `applyDefaultPolicy` check: only when `empty($onCosts) && !$paintConfigured && self::APPLY_DEFAULT_ON_COSTS` |
@@ -225,24 +235,27 @@ total_cost → persisted back into quote's cost component (systems.php:197-212)
 
 | # | Code | Docs | Status |
 |---|---|---|---|
-| 1 | **cost-engine + UI WIP landed mid-session** (uncommitted): cost.php rewritten with weldmodel integration (PAINT_RATES, PIPE_SHOP_HRS_PER_KG, TRANSPORT_PER_TON, paint auto-estimation, default on-costs policy, kind-aware material costing), new api/weldmodel.php + scripts/test-cost-engine.php, edititem.js/html +quoteview.js extended (+185 lines), materials.php/library.js/materiallist.js, fittings.json +38k lines | MAP.md/CONTEXT.md describe the old engine | ⚠️ docs + MAP.md §7 decision #5 need refresh after WIP lands (as of 17:00 WIP still uncommitted on main) |
+| 1 | **cost-engine + UI WIP landed mid-session** (uncommitted): cost.php rewritten with weldmodel integration (PAINT_RATES, PIPE_SHOP_HRS_PER_KG, TRANSPORT_PER_TON, paint auto-estimation, default on-costs policy, kind-aware material costing), new api/weldmodel.php + scripts/test-cost-engine.php, edititem.js/html +quote/view/view.js extended (+185 lines), materials.php/library.js/materiallist.js, fittings.json +38k lines | MAP.md/CONTEXT.md describe the old engine | ⚠️ docs + MAP.md §7 decision #5 need refresh after WIP lands (as of 17:00 WIP still uncommitted on main) |
 | 2 | PLAN.md "DDP Event Mapping" section | Zero DDP code exists | ⚠️ legacy, never implemented (MAP.md already flags) |
 | 3 | api file list in earlier CONTEXT.md was missing 12 endpoints | — | fixed in this session (MAP.md §3) |
 | 4 | cost component holds BOTH legacy keys (mHrs/wHrs/bmHrs/cons/serve/matCost/labCost/paintMode) and current keys (weldHrs/machHrs/consumables/…) merged | cost.php writes only current keys | ⚠️ legacy keys appear because... `patchComponentData` jsonb-merges onto any pre-existing comp; the legacy keys likely written by an earlier cost.php version and never cleared. Harmless but confusing; verify after WIP settles |
 | 5 | seed-data/fittings.json +38k lines, materials.php/library.js/materiallist.js modified (uncommitted) | MAP.md seed-data section | ⚠️ WIP in flight |
 | 6 | tests/phases phase3 cost assertions | cost.php changed | ✅ resolved — ran `./tests/run-phase.sh phase3` (API_BASE=127.0.0.1:8099): 50/50 passed against the new engine. Note: phase3 passes explicit options; the new auto-paint path (inhouse R45/sqm) is only exercised when no paint option is given and extArea > 0. |
-| 7 | **NEW:** weldmodel.php untracked WIP file — not in git history until committed | — | ⚠️ needs commit or rollback; currently sits in working dir as untracked file |
+| 7 | **NEW:** weldmodel.php untracked WIP file — not in git history until committed | — | ✅ resolved — committed; pure math class, static methods only, included by cost.php |
+| 8 | quoteview → quote/view rename + components/{clientlist→client/list, materialedit→material/edit, etc.} | MAP.md §2, §3, §8; LOGIC.md §2 S5, §4 | ✅ resolved — docs updated in this session to use quote-view tag
 
 ## 8. Map overlay index (MAP.md ↔ LOGIC.md)
 
 | MAP.md section | LOGIC.md section |
 |---|---|
+| §1 Boot chain (init.php) | §0 overlay |
 | §2 Component hierarchy | §0 overlay, §2 S5 |
-| §3 API callers (matrix) | §0, §2 S1-S3 chains |
+| §3 API callers (matrix) | §0, §1, §2 S1-S3 chains |
 | §4 DDP event bus (none) | §0, §1 |
-| §6 Database | §1 (ownership), §5 (DB CHECKs) |
+| §6 Database | §1 (ownership, team model), §5 (DB CHECKs) |
 | §7 Architectural decisions | §1, §2 S4, §5 |
 | §5 Forge vs custom | §0, §1 |
+| §8 New: boms compat/takeoff | §4 data transformations |
 
 ## 9. Replay recipes
 
@@ -257,9 +270,20 @@ curl -s -X POST $API/systems.php -d '{"action":"load_quote","input":{"quote_id":
 curl -s -X POST $API/quotes.php -d '{"action":"update_status","input":{"quote_id":"<QID>","status":"rejected","auth_id":"<AID>"}}'   # 409
 curl -s -X POST $API/systems.php -d '{"action":"load_quote","input":{"quote_id":"<QID>"}}'                                              # 401
 
+# S1b team invite flow
+# owner creates team + invites by email; existing user joins, new signup auto-joins
+curl -s -X POST $API/team.php -d '{"action":"create","input":{"name":"Acme Builders","auth_id":"<AID>"}}'
+curl -s -X POST $API/team.php -d '{"action":"invite","input":{"team_id":"<TID>","email":"colleague@example.com","auth_id":"<AID>"}}'
+curl -s -X POST $API/team.php -d '{"action":"my_team","input":{"auth_id":"<AID>"}}'
+
 # S2 BOM import
 curl -s -X POST $API/boms.php -d '{"action":"import","input":{"quote_id":"<QID>","rows":[{"item_number":"1","description":"Skid Frame"},{"item_number":"1.1","description":"Mounting Plate A36","material":"A36"}]}}'
 curl -s -X POST $API/links.php -d '{"action":"tree","input":{"entity_id":"<QID>","depth":10}}'
+
+# S2b takeoff + compat (quote-view Materials / Checks tabs)
+curl -s -X POST $API/boms.php -d '{"action":"takeoff","input":{"quote_id":"<QID>","auth_id":"<AID>"}}'  # → {materials, totals}
+curl -s -X POST $API/boms.php -d '{"action":"compat","input":{"quote_id":"<QID>","auth_id":"<AID>"}}'  # → {issues, suggestions, ok}
+curl -s -X POST $API/suppliers.php -d '{"action":"list","input":{"limit":200,"auth_id":"<AID>"}}'      # for takeoff-split
 
 # S3 prefab
 curl -s -X POST $API/prefabs.php -d '{"action":"list","input":{}}'
@@ -286,7 +310,7 @@ PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
 ## 10. Complete file inventory
 
 > Tag = `components/a/b/x` → `a-b-x`. Loads via: 🚀 boot (`start_comp`) / 🔗 route / 💬 template ref / 📦 popup / ⚙ script / 📄 manual.
-> Component rows group the html/js/css triplet (27 dirs = 81 files). Inventory total: 145 files on disk (excl. data/ reference + .git) — all covered below.
+> Component rows group the html/js/css triplet (25 top-level dirs + 17 subdirs = 42 component dirs). Inventory total: 145+ files on disk (excl. data/ reference + .git) — all covered below.
 
 ### Root / boot
 | File | Role | Loads via | Flags |
@@ -307,20 +331,21 @@ PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
 | lib/init.php | boot order: _util → router → LS.pre='fabricate' → svg-cache clear → **landing-first processPath patch** → processClear patch → forge_comp_js cache-bust → isReservedTag('nav') override | the app's routing brain |
 | lib/svg.php | forge SVG icon server passthrough | forge-svg fetch target |
 
-### api/ (21 files + 1 new)
+### api/ (24 files)
 | File | Handlers (action → handle_) | Flags |
 |---|---|---|
 | api/_base.php | ECS ensureEcs, dispatchIfEntry, Base (user scoping, getEntity/getComponents/getLinks/patchComponentData) | core |
 | api/auth.php | login signup logout verify forgot_password reset_password (extends forge Auth) | public actions |
 | api/user.php | get_preferences update_preferences login signup (proxy) | |
 | api/admin.php | get_settings update_settings list_users set_user_role | admin only UI-side |
+| api/team.php | preview_invite create list invite revoke_invite join members remove_member my_team | 🆕 team/invite model |
 | api/entities.php | list get get_full search create update delete | ECS core |
 | api/components.php | list get get_by_quote create update replace delete | ECS core |
-| api/links.php | list tree create update delete validate_cycle | ECS core; tree used by quoteview |
+| api/links.php | list tree create update delete validate_cycle | ECS core; tree used by quote-view |
 | api/cost.php | calculate_entity calculate_assembly batch_calculate get_cost | ⚠️ WIP — see drift #1; now includes weldmodel integration, kind-aware material costing, default on-costs policy, paint derivation |
 | api/systems.php | list_quotes load_quote recalculate_quote | orchestration |
 | api/quotes.php | list get create update update_status delete add_entity remove_entity add_items export_pdf | workflow layer |
-| api/boms.php | import calculate | |
+| api/boms.php | calculate compat import takeoff | |
 | api/materials.php | list get get_density match create update delete | ✅ pipe/fitting/flange attribute columns added (od wt schedule nb nps mass_kg paint_area_per_m ext_area) — 2026-08-10 |
 | api/prefabs.php | list get create update delete instantiate bake_from_quote | |
 | api/process.php | get_registry extract aggregate calculate_entity + static extractItems/mergeHours/sumHours | |
@@ -329,28 +354,29 @@ PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
 | api/procurement.php | po_list po_create po_update po_set_status sq_list sq_create rg_list rg_create | |
 | api/production.php | record_list record_create record_variance quote_summary | |
 | api/reports.php | margin_summary cost_by_client monthly_summary cost_by_trade quote_funnel | |
+| api/suppliers.php | list get create update delete | 🆕 supplier mgmt |
 | api/tools.php | calculate (pure math: plate/section/general/welding/machining/assembly/tank/pipe) density | no tables |
-| api/weldmodel.php | **NEW** static weld math (weld sizes, deposition, hours, areas) | 🆕 untracked WIP; pure math, no DB, no auth |
+| api/weldmodel.php | (static class — pure math, no handlers; included by cost.php) | 🆕 weld math (sizes, deposition, hours, areas) |
 
-### components/ (27 dirs × html/js/css = 81 files)
+### components/ (27 top-level dirs + 8 subdirs = 35 component dirs)
 | Component dir | Tag | Role / dataflow | Loads via | Flags |
 |---|---|---|---|---|
-| nav | nav | shell: tabs, auth gate, quoteview routing | 🚀 | ✅ HAR-verified |
+| nav | nav | shell: tabs, auth gate, quote-view routing | 🚀 | ✅ HAR-verified |
 | landing | landing | public welcome page → login/signup | 🔗 /landing | |
 | forgot | forgot | /forgot-password → auth.php forgot_password | 🔗 | |
 | reset | reset | /reset-password/<token> → auth.php reset_password | 🔗 | |
 | dashboard | dashboard | stats cards; systems.list_quotes + user.get_preferences | 🔗 tab | |
 | quotes | quotes | main list; systems.list_quotes, clients.list, quotes.create | 🔗 tab | ✅ HAR-verified |
-| quoteform | quoteform | New/Edit popup body; user.get_preferences | 📦 POPUP | |
-| clientselect | clientselect | picker trigger → POPUP clientlist; clients.list/create | 💬 | |
-| clientlist | clientlist | searchable client list (popup body) | 📦 POPUP | |
+| quote-form | quote-form | New/Edit popup body; user.get_preferences | 📦 POPUP | |
+| client-select | client-select | picker trigger → POPUP client/list; clients.list/create | 💬 | |
+| client-list | client-list | searchable client list (popup body) | 📦 POPUP | |
 | clients | clients | client CRUD page; clients.list/create | 🔗 tab | |
-| quoteview | quoteview | quote detail: 4 tabs, 12-col cost grid, tree-node comp; systems.load_quote/recalculate, quotes.update/update_status/export_pdf/add_items/import, components.update/create, materials.list, prefabs.instantiate/list, links.tree | 🔗 /nav/quotes/<id> | ✅ HAR-verified; largest comp |
-| quoteitems | quoteitems | batch line-item popup → quotes.add_items | 📦 POPUP | |
-| edititem | edititem | entity editor popup (materialselect + trades); entities.update, components.update/create | 📦 POPUP | |
-| materialselect | materialselect | picker trigger → POPUP materiallist | 💬 | |
-| materiallist | materiallist | searchable material list (popup body); materials.list | 📦 POPUP | ⚠️ modified |
-| prefabpicker | prefabpicker | prefab picker popup; prefabs.list | 📦 POPUP | |
+| quote-view | quote-view | quote detail: 7 tabs (Overview | Entities | BOM | Materials | Tree | Checks | Process), 12-col cost grid, tree-node comp; systems.load_quote/recalculate, quotes.update/update_status/export_pdf/add_items/import, components.update/create, materials.list, prefab-picker/list, links.tree, boms.compat/takeoff, suppliers.list | 🔗 /nav/quotes/<id> | ✅ HAR-verified; largest comp |
+| quote-items | quote-items | batch line-item popup → quotes.add_items | 📦 POPUP | |
+| edititem | edititem | entity editor popup (material-select + trades); entities.update, components.update/create | 📦 POPUP | |
+| material-select | material-select | picker trigger → POPUP material/list | 💬 | |
+| material-list | material-list | searchable material list (popup body); materials.list | 📦 POPUP | ⚠️ modified |
+| prefab-picker | prefab-picker | prefab picker popup; prefabs.list | 📦 POPUP | |
 | prefabs | prefabs | templates page: list/create/instantiate/bake; systems.list_quotes/load_quote | 🔗 tab | |
 | library | library | materials library page; materials.list | 🔗 tab | ⚠️ modified |
 | tools | tools | calculators; tools.calculate/density | 🔗 tab | |
@@ -361,6 +387,17 @@ PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
 | settings | settings | prefs+company rates; user.get/update_preferences, admin.get/update_settings | 🔗 tab | |
 | about | about | static overview | 🔗 tab | |
 | admin | admin | user mgmt (admin role); admin.list_users/set_user_role | 🔗 tab (admin) | |
+| material-edit | material-edit | inline material editor (library, WIP) | 📦 inline | 🆕 |
+| onboard | onboard | first-run setup wizard | 🚀 boot | 🆕 untracked |
+| suppliers | suppliers | supplier management page | 🔗 tab | 🆕 untracked |
+| takeoff-split | takeoff-split | split takeoff by supplier group (CSV/PDF) | 📦 POPUP | 🆕 untracked |
+| library/fasteners | — | sub-table for fasteners in library | 📦 inline | 🆕 |
+| library/fittings | — | sub-table for fittings in library | 📦 inline | 🆕 |
+| library/flanges | — | sub-table for flanges in library | 📦 inline | 🆕 |
+| library/pipe | — | sub-table for pipe in library | 📦 inline | 🆕 |
+| library/plates | — | sub-table for plates in library | 📦 inline | 🆕 |
+| library/sections | — | sub-table for sections in library | 📦 inline | 🆕 |
+| library/tube | — | sub-table for tube in library | 📦 inline | 🆕 |
 
 ### seed-data / scripts
 | File | Role | Flags |
@@ -369,10 +406,14 @@ PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
 | seed-data/fittings.json | pipe fittings seed | ⚠️ +38k lines uncommitted |
 | seed-data/fasteners.json / flanges.json / pipes.json | fastener/flange/pipe seeds | |
 | scripts/seed-materials.php | DB seed for materials | ⚠️ modified |
+| scripts/seed-edit-test.php | entity material/process cost patching test | |
 | scripts/test-cost-engine.php | end-to-end cost engine smoke test (pipe/flange/fitting vs real library rows) | 🆕 untracked, part of cost-engine WIP |
+| scripts/test-mock-estimation.php | mock estimation engine test | 🆕 |
 | scripts/seed-prefabs.php | global prefab templates seed | |
 | scripts/seed-test-quote.php | test quotes incl. Tank Skid | |
 | scripts/build-fittings-seed.js / build-flanges-seed.js / build-pipes-seed.js | xlsx→json builders | 🆕 |
+| scripts/build-boq-import.php / import-boq-quote.php | BOQ import pipeline | |
+| scripts/setup-5-mock-quotes.php | multi-quote fixture loader | |
 | scripts/xlsx_to_md.js / get_sheets.py / get_sheet_names.py | data/md pipeline | |
 | scripts/purge-test-data.sql | hard-delete test rows | ⚙ tests only |
 
@@ -396,15 +437,17 @@ PGPASSWORD=$DB_PASS psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c \
 ## 11. Next traces to verify live (backlog)
 
 - [x] ~~Re-run `./tests/run-phase.sh phase3`~~ — ✅ 50/50 green on new paint/transport engine (2026-08-10); note the auto-paint path is untested by the phase (options always passed explicitly)
+- [x] ~~quoteview → quote/view rename~~ — ✅ doc refs updated in this session
 - [ ] Dashboard stats math — verify list_quotes + client-side aggregation matches DB (dashboard.js)
 - [ ] reports.php margin_summary/cost_by_client — cross-check numbers vs load_quote totals
 - [ ] procurement + production full CRUD cycle (po_create→po_set_status→rg_create)
-- [ ] export_pdf — open generated HTML, verify totals row vs quoteview grid
+- [ ] export_pdf — open generated HTML, verify totals row vs quote-view grid
 - [ ] admin set_user_role → nav visibleTabs (admin tab appears for new admin)
 - [ ] boms import with material present in library (e.g. "304" plate) — verify nonzero material cost flows through
 - [ ] tools.php calculate consistency vs cost.php for the same inputs (AD decision #5)
 - [ ] **NEW:** Re-verify S4 cost engine scenarios with the new weldmodel-integrated engine — welding/hours/mass now computed from weldmodel; compare against old verified numbers
 - [ ] **NEW:** Test default on-costs policy (items with no on-costs configured) — verify consumables=2.5%, services=1%, NDT=1.5% of material+process, transport by ton
 - [ ] **NEW:** Test kind-aware material costing — pipe/fitting/flange/material paths with and without library matches; verify fallback rates (SS/Al/carbon)
-- [ ] **NEW:** After weldmodel WIP lands: document the new cost component shape + recalibrate MAP.md §7 AD#5
-- [ ] **NEW:** Run phase11 (weldmodel) test harness if available
+- [ ] **NEW:** Run phase11 (full mock costing) — multi-level BOM rollup, all trades, on-costs, paint+transport+margin
+- [ ] **NEW:** Test team invite flow end-to-end (create team → invite email → signup auto-join → members list)
+- [ ] **NEW:** Test boms.compat on a pipe without a flange — verify suggestions populated from library

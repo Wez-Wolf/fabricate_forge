@@ -613,6 +613,7 @@ The existing `imports/ui/main.css` will be migrated to the Forge design system's
 | 8. Business Modules | tools / orders / procurement / production / prefabs | `tests/phases/phase8.sh` | calc math exact, order/PO status transitions enforced, variance auto-calc, prefab instantiate builds ECS tree + recalc |
 | 9. Full-port Extras | tank/pipe tools, forgot/reset password | `tests/phases/phase9.sh` | tank/pipe takeoff math exact; token lifecycle (single-use, expiry, no enumeration) |
 | 10. Reports & Analytics | reports.php (cost_by_client / funnel / monthly / trade / margin) | `tests/phases/phase10.sh` | grouped totals exact, trade hours×rates priced, margin math (30% → 23.1% effective) |
+| 11. Full Mock Costing | cost.php assembly+parts+materials+processes+on-costs+paint+transport+margin | `tests/phases/phase11.sh` | multi-level BOM rollup: entity cost → assembly roll-up → quote load_quote totals; kind-aware costing, weld math, default on-costs |
 
 **Module test contract (every phase):**
 
@@ -659,7 +660,9 @@ forge-comp-ground-truth (computed styles, not vision).
 | Tab | Page component | Status |
 |---|---|---|
 | Dashboard | `components/dashboard/` | ✅ |
-| Quotes | `components/quotes/` + `components/quoteview/` | ✅ |
+| Quotes | `components/quotes/` + `components/quote/view/` | ✅ |
+| Clients | `components/clients/` | ✅ client CRUD + picker |
+| Suppliers | `components/suppliers/` | ✅ supplier CRUD |
 | Library | `components/library/` | ✅ materials library (forge-list + search + category chips) |
 | Tools | `components/tools/` | ✅ material + process calculators (server math) |
 | Prefabs | `components/prefabs/` | ✅ templates + instantiate into quote + bake from quote |
@@ -668,13 +671,13 @@ forge-comp-ground-truth (computed styles, not vision).
 | Production | `components/production/` | ✅ records + variance + summary cards |
 | Reports | `components/reports/` | ✅ quote summary cards + forge-list table + per-quote PDF export |
 | Settings | `components/settings/` | ✅ user prefs + company name + process rates (forge-form + v-for rate grid), save verified |
-| Admin | `components/admin/` | ✅ user table + role dropdowns (admin-gated, forge user_role model) |
+| Admin | `components/admin/` | ✅ user table + role dropdowns + team management (admin-gated) |
 
 ### UI shell files
 
 - `bootstrap.php` — security headers + session
 - `index.php` — theme-init, style.css, #main start_comp=nav default_tab=dashboard
-- `lib/init.php` — forge core (util/router/comp-js) + LS.pre=fabricate + nav-tag override
+- `lib/init.php` — forge core JS (util/router/comp-js) + LS.pre=fabricate + landing-first processPath routing + SVG cache clear + processClear patches + isReservedTag('nav') override
 - `lib/vue.php` / `lib/config.php` — Vue 2.6 runtime + config loader
 - `comp.php` — proxy to forge/php/comp.php (component resolver)
 - `style.css` — brand-first tokens + forge component coverage (--forge-button/--forge-form/--forge-tabs/...)

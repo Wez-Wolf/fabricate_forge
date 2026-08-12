@@ -143,9 +143,9 @@ var comp = {
                 }
                 if (parts.length >= 2 && parts[0] === 'quotes') {
                     if (self.$refs.nav) {
-                        self.$refs.nav.setPage('quoteview', { tab_url: parts.join('/') });
+                        self.$refs.nav.setPage('quote-view', { tab_url: parts.join('/') });
                     }
-                } else if (self.$refs.nav && self.$refs.nav.pageComp === 'quoteview') {
+                } else if (self.$refs.nav && self.$refs.nav.pageComp === 'quote-view') {
                     // Left the quote detail (back/forward/tab click) — restore
                     // the tab page so the detail doesn't linger on the list URL.
                     var tag = parts[0] || self.tab_url || 'dashboard';
