@@ -2,40 +2,52 @@
     <div class="C_header_row">
         <div>
             <h1 class="C_title">Library</h1>
-            <p class="C_subtitle">Material library — plates, sections, fasteners, fittings.</p>
+            <p class="C_subtitle">Material library — each material class has its own table. Click a material to edit specs or set supplier pricing.</p>
         </div>
+        <forge-button label="+ New Material" @click="openNew" />
     </div>
 
     <div v-if="error" class="C_error">{{ error }}</div>
 
     <div class="C_toolbar">
         <forge-search class="C_search" place_holder="Search materials..." @onSearch="onSearch" />
-        <div class="C_filters">
-            <span
-                v-for="c in cats"
-                :key="c"
-                class="C_filter_chip"
-                :class="{ 'C_active': catFilter === c }"
-                @click="setCat(c)"
-            >{{ c }} <span class="C_count">{{ counts[c] || 0 }}</span></span>
-            <span v-if="catFilter" class="C_clear" @click="setCat(catFilter)">×</span>
-        </div>
+    </div>
+
+    <!-- Type tabs: each material class is its own sub-component/table -->
+    <div class="C_type_tabs">
+        <span
+            v-for="t in tabs"
+            :key="t.key"
+            class="C_type_tab"
+            :class="{ 'C_active': activeTab === t.key }"
+            @click="setTab(t.key)"
+        >{{ t.name }} <span class="C_count">{{ counts[t.key] || 0 }}</span></span>
+    </div>
+
+    <!-- Colour legend -->
+    <div class="C_legend">
+        <span class="C_legend_item"><i style="background:#3b82f6"></i>Plate</span>
+        <span class="C_legend_item"><i style="background:#60a5fa"></i>Sheet</span>
+        <span class="C_legend_item"><i style="background:#f59e0b"></i>Angle</span>
+        <span class="C_legend_item"><i style="background:#fbbf24"></i>Channel</span>
+        <span class="C_legend_item"><i style="background:#dc2626"></i>H/I-Beam</span>
+        <span class="C_legend_item"><i style="background:#f97316"></i>Bars</span>
+        <span class="C_legend_item"><i style="background:#14b8a6"></i>Pipe</span>
+        <span class="C_legend_item"><i style="background:#06b6d4"></i>Tube</span>
+        <span class="C_legend_item"><i style="background:#8b5cf6"></i>Fitting</span>
+        <span class="C_legend_item"><i style="background:#ec4899"></i>Flange</span>
+        <span class="C_legend_item"><i style="background:#22c55e"></i>Fastener</span>
     </div>
 
     <div v-if="loading" class="C_loading">
         <forge-loader variant="dots" label="Loading library..." />
     </div>
 
-    <div class="C_list">
-        <forge-list
-            v-if="!loading"
-            :fields="fields"
-            :value="rows"
-            :search="search"
-            @onFetch="onFetch"
-        />
-        <div v-if="!loading && !rows.length" class="C_empty">
-            <p>No materials found.</p>
-        </div>
-    </div>
+    <!-- Active type tab → its own sub-component table -->
+    <component
+        v-if="!loading"
+        :is="activeComp"
+        :items="tabItems"
+        @edit="edit"
+    />
 </div>

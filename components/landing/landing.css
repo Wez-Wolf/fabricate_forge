@@ -265,3 +265,33 @@
 @media (max-width: 480px) {
     .C_features_grid { grid-template-columns: 1fr; }
 }
+
+.C_invite_hero {
+    padding: 4rem 1.5rem 3rem;
+    text-align: center;
+}
+
+.C_invite_hero_inner {
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.C_invite_team {
+    color: var(--accent, #2563eb);
+}
+
+.C_invite_meta {
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+.C_invite_dot {
+    margin: 0 0.4rem;
+    opacity: 0.5;
+}
+
+.C_invite_loading {
+    padding: 3rem 0;
+    color: var(--text-dim);
+}

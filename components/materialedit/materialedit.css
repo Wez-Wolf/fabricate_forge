@@ -1,0 +1,79 @@
+/* components/materialedit — full material editor */
+.C_main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    overflow: auto;
+    height: 100%;
+}
+
+.C_section_label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+
+.C_field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    flex: 1;
+}
+
+.C_field_row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.C_label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.C_req { color: var(--error); }
+
+.C_input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.875rem;
+    width: 100%;
+}
+
+.C_input:focus { outline: none; border-color: var(--accent); }
+
+.C_actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 0.75rem 0;
+    background: var(--forge-popup-bg, var(--color-bg));
+    border-top: 1px solid var(--border);
+}
+
+.C_hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin: 0;
+}
+
+.C_cancel {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+}
+
+.C_cancel:hover { background: var(--surface-hover, var(--border)); color: var(--text); }

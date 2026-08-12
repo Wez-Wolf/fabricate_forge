@@ -121,6 +121,19 @@
     height: 1.125rem;
 }
 
+.C_row_trash {
+    color: var(--text-dim);
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.55;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.C_row_trash:hover {
+    opacity: 1;
+    color: #dc2626;
+}
+
 .C_empty {
     padding: 3rem 1rem;
     text-align: center;

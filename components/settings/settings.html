@@ -65,5 +65,22 @@
                 <forge-button label="Save Rates" @click="saveCompany" :disabled="saving" />
             </div>
         </div>
+
+        <!-- Team membership (management lives in Admin) -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Team</h2>
+            </div>
+            <div v-if="myTeam && myTeam.team" class="C_team_member_note">
+                You're on <strong>{{ myTeam.team.name }}</strong> — owned by
+                <strong>{{ myTeam.team.owner_email }}</strong>. You can view and
+                work everything in this workspace. Team management is in
+                <strong>Admin</strong>.
+            </div>
+            <div v-else class="C_team_member_note">
+                You're not on a team yet. Ask the workspace owner to invite you
+                (Admin → Teams → Invite).
+            </div>
+        </div>
     </template>
 </div>

@@ -72,7 +72,7 @@ class links extends Base
             $dup = $this->pgCrud->read([
                 'table' => 'link',
                 'where' => 'from_id = $1 AND to_id = $2 AND type = $3 AND user_id_owner = $4',
-                'params' => [$fromId, $toId, $type, $this->user_id],
+                'params' => [$fromId, $toId, $type, $this->effOwnerId()],
                 'limit' => 1,
             ]);
             if (!empty($dup['data'])) {
@@ -91,7 +91,7 @@ class links extends Base
                 'type' => $type,
                 'quantity' => \getVal($input, 'quantity', 1),
                 'data' => $data,
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
 
@@ -99,7 +99,7 @@ class links extends Base
         return $this->pgCrud->read([
             'table' => 'link',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$res['data']['id'], $this->user_id],
+            'params' => [$res['data']['id'], $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
     }
@@ -129,7 +129,7 @@ class links extends Base
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE link SET " . implode(', ', $sets) .
@@ -140,7 +140,7 @@ class links extends Base
         return $this->pgCrud->read([
             'table' => 'link',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
     }
@@ -155,7 +155,7 @@ class links extends Base
 
         $this->pgCrud->execute(
             "DELETE FROM link WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }

@@ -10,6 +10,8 @@
 - --accent: #3b82f6
 - --accent-hover: #3b82f6
 - --accent-hover: #60a5fa
+- --accent-soft: #dbeafe
+- --accent-soft: rgba(59,130,246,0.15)
 - --bg: #0f172a
 - --bg: #f8fafc
 - --border: #475569
@@ -24,11 +26,10 @@
 - --secondary: #7c3aed
 - --secondary: #8b5cf6
 - --text: #1e293b
-- --text-dim: #64748b
-- --text-dim: #cbd5e1
 ### Fonts
 - Inter
 - Inter,-apple-system,sans-serif
+- var
 <!-- /design-system:auto -->
 
 <!-- design-system:manual -->

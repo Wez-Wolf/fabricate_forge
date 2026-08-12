@@ -14,8 +14,39 @@
         </div>
     </div>
 
-    <!-- Hero -->
-    <div class="C_hero">
+    <!-- Invite hero (dedicated onboarding for invite-link visitors) -->
+    <div v-if="invited" class="C_invite_hero">
+        <div class="C_invite_hero_inner">
+            <div v-if="inviteLoading" class="C_invite_loading">Loading your invite…</div>
+            <template v-else-if="invite">
+                <span class="C_eyebrow">TEAM INVITE</span>
+                <h1 class="C_hero_title">You're invited to join<br /><span class="C_invite_team">{{ invite.name }}</span></h1>
+                <p class="C_hero_sub">
+                    <strong>{{ invite.owner_name }}</strong> invited you to work together on
+                    fabrication quotes, costing, materials, and suppliers — all in one workspace.
+                </p>
+                <div class="C_hero_cta">
+                    <forge-button label="Create Your Account" @click="goSignup" />
+                    <span class="C_hero_alt" @click="goLogin">Already have an account? Sign in</span>
+                </div>
+                <div class="C_invite_meta">
+                    Invited by <strong>{{ invite.owner_name }}</strong>
+                    <span class="C_invite_dot">·</span> {{ invite.owner_email }}
+                </div>
+            </template>
+            <template v-else>
+                <span class="C_eyebrow">TEAM INVITE</span>
+                <h1 class="C_hero_title">This invite link is no longer valid</h1>
+                <p class="C_hero_sub">Ask the workspace owner to send you a fresh invite link.</p>
+                <div class="C_hero_cta">
+                    <forge-button label="Sign In" @click="goLogin" />
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Hero (generic — hidden for invited visitors) -->
+    <div v-else class="C_hero">
         <div class="C_hero_inner">
             <div class="C_hero_copy">
                 <span class="C_eyebrow">Fabrication Costing System</span>
@@ -57,7 +88,7 @@
     </div>
 
     <!-- CTA -->
-    <div class="C_cta">
+    <div v-if="!invited" class="C_cta">
         <h2 class="C_cta_title">Ready to price your next job?</h2>
         <p class="C_cta_sub">Create an account and build your first quote in minutes.</p>
         <forge-button label="Get Started" @click="goSignup" />

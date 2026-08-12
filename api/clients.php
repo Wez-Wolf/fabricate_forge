@@ -45,7 +45,7 @@ SQL);
     public function handle_list($input = [])
     {
         $where = 'user_id_owner = $1 AND is_active = TRUE';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
 
         $search = \getVal($input, 'search');
@@ -76,7 +76,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'client',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ]);
         $row = $res['data'][0] ?? null;
@@ -105,7 +105,7 @@ SQL);
                 'industry' => \getVal($input, 'industry'),
                 'website' => \getVal($input, 'website'),
                 'notes' => \getVal($input, 'notes'),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -137,7 +137,7 @@ SQL);
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE client SET " . implode(', ', $sets) .
@@ -157,7 +157,7 @@ SQL);
         $this->pgCrud->execute(
             "UPDATE client SET is_active = FALSE, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }

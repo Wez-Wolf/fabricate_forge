@@ -18,7 +18,7 @@ include_once(__DIR__ . "/_base.php");
 class materials extends Base
 {
     const CATEGORIES = ['plate', 'section', 'pipe', 'tube', 'fitting', 'fastener', 'other'];
-    const LIBRARY_CATEGORIES = ['material', 'fastener', 'fitting'];
+    const LIBRARY_CATEGORIES = ['material', 'fastener', 'fitting', 'flange'];
     const MATERIAL_TYPES = ['Carbon Steel', 'Stainless Steel', 'Aluminum', 'Copper', 'Brass', 'Titanium', 'Plastic', 'Other'];
 
     protected function buildTable()
@@ -48,6 +48,34 @@ CREATE TABLE IF NOT EXISTS material_library (
 SQL);
         $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_mat_lib_cat ON material_library(library_category)');
         $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_mat_lib_owner ON material_library(user_id_owner)');
+        // Pipe / fitting / flange attribute columns — surfaced from the piping
+        // reference data (data/md) that previously lived only in the JSONB
+        // `data` blob. Idempotent ALTERs: safe on every request, app-managed.
+        //   od              outer diameter mm (pipe OD / fitting end-1 / flange pipe OD)
+        //   wt              wall thickness mm (pipe WT / fitting end-1 WT)
+        //   schedule        pipe schedule (#40/STD/XS/XXS) or fitting series
+        //   nb              nominal bore DN
+        //   nps             inch size (NPS)
+        //   mass_kg         mass per item (fittings/flanges)
+        //   paint_area_per_m  m² per metre external area (pipes)
+        //   ext_area        m² per item external paint area (fittings/flanges)
+        foreach ([
+            'od'              => 'NUMERIC',
+            'wt'              => 'NUMERIC',
+            'schedule'        => 'VARCHAR(20)',
+            'nb'              => 'NUMERIC',
+            'nps'             => 'VARCHAR(20)',
+            'mass_kg'         => 'NUMERIC',
+            'paint_area_per_m'=> 'NUMERIC',
+            'ext_area'        => 'NUMERIC',
+            // Supplier pricing: which supplier prices this material + when the
+            // buy price was last set (the SELL unit_cost is the same column;
+            // the timestamp records the last price update).
+            'supplier_id'     => 'UUID',
+            'price_updated_at'=> 'TIMESTAMPTZ',
+        ] as $col => $type) {
+            $this->pgCrud->execute("ALTER TABLE material_library ADD COLUMN IF NOT EXISTS $col $type");
+        }
     }
 
     /**
@@ -57,7 +85,7 @@ SQL);
     public function handle_list($input = [])
     {
         $where = '(user_id_owner IS NULL OR user_id_owner = $1)';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
 
         $libCat = \getVal($input, 'library_category');
@@ -85,7 +113,7 @@ SQL);
         }
 
         $limit = (int)\getVal($input, 'limit', 100);
-        $limit = min(max($limit, 1), 500);
+        $limit = min(max($limit, 1), 2000);
 
         $res = $this->pgCrud->read([
             'table' => 'material_library',
@@ -100,6 +128,8 @@ SQL);
             $r['aliases'] = self::decodeJsonArray($r['aliases'] ?? []);
             $r['data'] = self::decodeJsonArray($r['data'] ?? []);
         }
+        unset($r);
+        $this->attachSupplierNames($rows);
         return $rows;
     }
 
@@ -118,6 +148,33 @@ SQL);
     }
 
     /**
+     * Attach supplier_name to material rows (from the supplier table) in one
+     * batch query. Rows are passed by reference so callers keep their shape.
+     */
+    private function attachSupplierNames(&$rows)
+    {
+        $ids = [];
+        foreach ($rows as $r) {
+            if (!empty($r['supplier_id'])) $ids[$r['supplier_id']] = true;
+        }
+        if (!$ids) return;
+
+        $res = $this->pgCrud->read([
+            'table' => 'supplier',
+            'fields' => ['id', 'company_name'],
+            'where' => 'id = ANY($1::uuid[]) AND user_id_owner = $2 AND is_active = TRUE',
+            'params' => ['{' . implode(',', array_keys($ids)) . '}', $this->effOwnerId()],
+        ]);
+        $names = [];
+        foreach (($res['data'] ?? []) as $s) $names[$s['id']] = $s['company_name'];
+
+        foreach ($rows as &$r) {
+            $r['supplier_name'] = !empty($r['supplier_id']) ? ($names[$r['supplier_id']] ?? null) : null;
+        }
+        unset($r);
+    }
+
+    /**
      * Get one material by id (global or own).
      */
     public function handle_get($input = [])
@@ -128,14 +185,16 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'material_library',
             'where' => 'id = $1 AND (user_id_owner IS NULL OR user_id_owner = $2)',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ]);
         $row = $res['data'][0] ?? null;
         if (!$row) return ['error' => 'Material not found.', 'error_code' => 404];
         $row['aliases'] = self::decodeJsonArray($row['aliases'] ?? []);
         $row['data'] = self::decodeJsonArray($row['data'] ?? []);
-        return $row;
+        $rows = [$row];
+        $this->attachSupplierNames($rows);
+        return $rows[0];
     }
 
     /**
@@ -163,9 +222,18 @@ SQL);
                 'mass_per_area' => \getVal($input, 'mass_per_area'),
                 'unit_cost' => \getVal($input, 'unit_cost', 0),
                 'library_category' => \getVal($input, 'library_category', 'material'),
+                // Pipe/fitting/flange attribute columns (see buildTable)
+                'od' => \getVal($input, 'od'),
+                'wt' => \getVal($input, 'wt'),
+                'schedule' => \getVal($input, 'schedule'),
+                'nb' => \getVal($input, 'nb'),
+                'nps' => \getVal($input, 'nps'),
+                'mass_kg' => \getVal($input, 'mass_kg'),
+                'paint_area_per_m' => \getVal($input, 'paint_area_per_m'),
+                'ext_area' => \getVal($input, 'ext_area'),
                 'aliases' => \getVal($input, 'aliases', []),
                 'data' => $data,
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -173,7 +241,10 @@ SQL);
     }
 
     /**
-     * Update own material (global materials are read-only via API).
+     * Update a material. Pricing fields (unit_cost, supplier_id) are editable
+     * on ANY row — even global library items — because the buy price and which
+     * supplier quotes it are the user's own commercial data. Spec fields
+     * (name, profile, dims) stay read-only for global rows.
      */
     public function handle_update($input = [])
     {
@@ -182,36 +253,61 @@ SQL);
 
         $existing = $this->handle_get(['id' => $id]);
         if (isset($existing['error'])) return $existing;
-        if (empty($existing['user_id_owner'])) {
-            return ['error' => 'Global library materials are read-only.', 'error_code' => 403];
-        }
 
         $sets = [];
         $params = [];
         $idx = 1;
-        $cols = ['name','profile','material_type','category','grade','density',
-                 'thickness','mass_per_meter','mass_per_area','unit_cost','library_category'];
-        foreach ($cols as $col) {
+
+        // Spec columns — editable on any row (global or user-owned). The
+        // seeded library is a starting point; users fix names/dims as they
+        // encounter real-world data. (Delete stays own-only.)
+        $specCols = ['name','profile','material_type','category','grade','density',
+                     'thickness','mass_per_meter','mass_per_area','library_category',
+                     'od','wt','schedule','nb','nps','mass_kg','paint_area_per_m','ext_area'];
+        foreach ($specCols as $col) {
             if (array_key_exists($col, $input)) {
                 $sets[] = "$col = \${$idx}";
                 $params[] = $input[$col];
                 $idx++;
             }
         }
+
+        // Pricing columns — editable on ANY material; stamp price_updated_at
+        // whenever the buy price or supplier changes.
+        $priceTouched = false;
+        foreach (['unit_cost', 'supplier_id'] as $col) {
+            if (array_key_exists($col, $input)) {
+                $sets[] = "$col = \${$idx}";
+                $params[] = $input[$col] === '' ? null : $input[$col];
+                $idx++;
+                $priceTouched = true;
+            }
+        }
+        if ($priceTouched) {
+            $sets[] = 'price_updated_at = NOW()';
+        }
+
         if (isset($input['aliases']) && is_array($input['aliases'])) {
             $sets[] = "aliases = \${$idx}::jsonb";
             $params[] = json_encode($input['aliases']);
+            $idx++;
+        }
+        // data JSONB merge (kind-specific variables: dn, type, rating, pipeOd,
+        // massKg, paintAreaPerM, extArea) — preserves keys not in the payload.
+        if (isset($input['data']) && is_array($input['data']) && !empty($input['data'])) {
+            $sets[] = "data = COALESCE(data, '{}'::jsonb) || \${$idx}::jsonb";
+            $params[] = json_encode($input['data']);
             $idx++;
         }
         if (!$sets) return ['error' => 'Nothing to update.'];
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE material_library SET " . implode(', ', $sets) .
-            " WHERE id = \${$idx} AND user_id_owner = \$" . ($idx + 1),
+            " WHERE id = \${$idx} AND (user_id_owner IS NULL OR user_id_owner = \$" . ($idx + 1) . ")",
             $params
         );
         return $this->handle_get(['id' => $id]);
@@ -233,7 +329,7 @@ SQL);
 
         $this->pgCrud->execute(
             "DELETE FROM material_library WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }

@@ -44,4 +44,84 @@
             <p>No users found.</p>
         </div>
     </div>
+
+    <!-- Teams -->
+    <div class="C_section">
+        <div class="C_section_header">
+            <h2>Teams</h2>
+        </div>
+
+        <div class="C_hint">
+            Everyone on a team works the same workspace — your quotes, materials,
+            rates, and suppliers. Invite by email; new users auto-join on signup.
+        </div>
+        <div class="C_form">
+            <div class="C_team_create_row">
+                <input
+                    v-model="newTeamName"
+                    type="text"
+                    placeholder="New team name (e.g. Estimating)"
+                    class="C_role_input C_team_name_input"
+                    @keyup.enter="createTeam"
+                />
+                <forge-button label="Create Team" @click="createTeam" :disabled="loading" />
+            </div>
+        </div>
+
+        <div v-if="teams.length" class="C_team_list">
+            <div
+                v-for="t in teams"
+                :key="t.id"
+                class="C_team_item"
+                :class="{ 'C_team_item_active': activeTeam && activeTeam.id === t.id }"
+                @click="selectTeam(t.id)"
+            >
+                <span class="C_team_name">{{ t.name }}</span>
+                <span class="C_team_count">{{ (membersByTeam[t.id] || []).length }} members</span>
+            </div>
+        </div>
+
+        <div v-if="activeTeam" class="C_team_detail">
+            <h3>{{ activeTeam.name }}</h3>
+            <div class="C_form">
+                <div class="C_team_create_row">
+                    <input
+                        v-model="inviteEmail"
+                        type="email"
+                        placeholder="Invite by email — they'll auto-join on signup"
+                        class="C_role_input C_team_name_input"
+                        @keyup.enter="invite"
+                    />
+                    <forge-button label="Invite" @click="invite" :disabled="loading" />
+                </div>
+                <p v-if="activeTeam.invite_code" class="C_hint">
+                    Share this link — anyone who signs up through it joins this team:
+                </p>
+                <div v-if="activeTeam.invite_code" class="C_team_create_row">
+                    <input
+                        :value="inviteLink"
+                        type="text"
+                        readonly
+                        class="C_role_input C_team_name_input C_invite_link"
+                        @click="copyInviteLink"
+                    />
+                    <forge-button label="Copy Link" @click="copyInviteLink" :disabled="loading" />
+                </div>
+            </div>
+
+            <h4>Members</h4>
+            <div v-if="!activeTeam.members.length" class="C_hint">No members yet — invite someone above.</div>
+            <div v-for="m in activeTeam.members" :key="m.user_id" class="C_team_row">
+                <span>{{ m.email }}</span>
+                <span class="C_hint">joined {{ fmtDate(m.joined_at) }}</span>
+                <forge-button label="Remove" variant="danger" size="sm" @click="removeMember(m.user_id)" />
+            </div>
+
+            <h4 v-if="activeTeam.pending.length">Pending invites</h4>
+            <div v-for="p in activeTeam.pending" :key="p.id" class="C_team_row">
+                <span>{{ p.email }} <span class="C_hint">(awaiting signup)</span></span>
+                <forge-button label="Revoke" variant="danger" size="sm" @click="revokeInvite(p.id)" />
+            </div>
+        </div>
+    </div>
 </div>

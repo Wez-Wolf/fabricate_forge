@@ -131,6 +131,9 @@ abstract class Base extends \forge\api\Base
     /** @var string|null The authenticated user's UUID (from forge auth). */
     protected $user_id = null;
 
+    /** @var string|null Cached team-owner id ("data silo") for this user. */
+    private $team_owner_id = null;
+
     protected $publicActions = [];
 
     /**
@@ -143,6 +146,49 @@ abstract class Base extends \forge\api\Base
             $this->user_id = $auth['user_id'] ?? $auth['auth_id'] ?? null;
         }
         return $auth;
+    }
+
+    // ── Team / data-silo resolution ──────────────────────
+
+    /**
+     * The user id whose data this request may touch.
+     *
+     * Solo users: their own id (unchanged behavior).
+     * Team members: the team owner's id — everyone on a team works the
+     * owner's data silo ("invitee sees my quotes"). No gates yet; this is
+     * the single seam future per-team permissions hang on.
+     *
+     * One team per user (enforced on join). Resolved once per request.
+     *
+     * @return string|null
+     */
+    protected function effOwnerId()
+    {
+        if ($this->team_owner_id !== null) return $this->team_owner_id;
+        $this->team_owner_id = $this->user_id;
+        if (!$this->user_id) return $this->team_owner_id;
+
+        $res = $this->pgCrud->read([
+            'table' => 'team_member',
+            'fields' => ['team_id'],
+            'where' => 'user_id = $1',
+            'params' => [$this->user_id],
+            'limit' => 1,
+        ]);
+        $teamId = $res['data'][0]['team_id'] ?? null;
+        if ($teamId) {
+            $t = $this->pgCrud->read([
+                'table' => 'team',
+                'fields' => ['owner_id'],
+                'where' => 'id = $1',
+                'params' => [$teamId],
+                'limit' => 1,
+            ]);
+            if (!empty($t['data'][0]['owner_id'])) {
+                $this->team_owner_id = $t['data'][0]['owner_id'];
+            }
+        }
+        return $this->team_owner_id;
     }
 
     // ── ECS shared helpers ──────────────────────────────
@@ -168,7 +214,7 @@ abstract class Base extends \forge\api\Base
         $res = $this->pgCrud->read([
             'table' => 'entity',
             'where' => 'id = $1 AND user_id_owner = $2 AND is_active = TRUE',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ]);
         return $res['data'][0] ?? null;
@@ -184,7 +230,7 @@ abstract class Base extends \forge\api\Base
     protected function getComponents($entityId, $type = null)
     {
         $where = 'entity_id = $1 AND user_id_owner = $2';
-        $params = [$entityId, $this->user_id];
+        $params = [$entityId, $this->effOwnerId()];
         if ($type) {
             $where .= ' AND type = $3';
             $params[] = $type;
@@ -213,12 +259,12 @@ abstract class Base extends \forge\api\Base
         $out = $this->pgCrud->read([
             'table' => 'link',
             'where' => "from_id = \$1 AND user_id_owner = \$2$whereType",
-            'params' => [$entityId, $this->user_id],
+            'params' => [$entityId, $this->effOwnerId()],
         ]);
         $in = $this->pgCrud->read([
             'table' => 'link',
             'where' => "to_id = \$1 AND user_id_owner = \$2$whereType",
-            'params' => [$entityId, $this->user_id],
+            'params' => [$entityId, $this->effOwnerId()],
         ]);
         return [
             'out' => $out['data'] ?? [],
@@ -242,7 +288,7 @@ abstract class Base extends \forge\api\Base
              SET data = component.data || \$2::jsonb,
                  updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$3",
-            [$id, json_encode($patch), $this->user_id]
+            [$id, json_encode($patch), $this->effOwnerId()]
         );
     }
 }

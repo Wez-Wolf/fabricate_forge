@@ -1,0 +1,33 @@
+<div class="C_main">
+    <p class="C_hint">Tick the material groups each supplier should price. One CSV is generated per supplier — send them straight off for costing.</p>
+
+    <div v-if="!groups.length" class="C_empty">
+        <p>No material groups to split — add materials to the quote first.</p>
+    </div>
+
+    <div v-else class="C_group_list">
+        <div v-for="g in groups" :key="g.name" class="C_group_row">
+            <label class="C_group_check">
+                <input type="checkbox" v-model="sel[g.name].checked" />
+                <span class="C_group_name">{{ g.name }}</span>
+                <span class="C_group_meta">
+                    {{ g.materials.length }} item{{ g.materials.length === 1 ? '' : 's' }}
+                    <template v-if="g.totals.mass"> · {{ Number(g.totals.mass).toFixed(1) }} kg</template>
+                    <template v-if="g.totals.ea"> · {{ g.totals.ea }} ea</template>
+                    <span class="num">{{ fmt(g.totals.cost) }}</span>
+                </span>
+            </label>
+            <select v-model="sel[g.name].supplier_id" class="C_input C_supplier_select">
+                <option value="">— No supplier (own file) —</option>
+                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.company_name }}</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="C_actions">
+        <span class="C_count">{{ selectedCount }} group{{ selectedCount === 1 ? '' : 's' }} selected → {{ fileCount }} file{{ fileCount === 1 ? '' : 's' }}</span>
+        <span class="C_spacer"></span>
+        <forge-button label="Generate RFQ CSVs" @click="generate" :disabled="!selectedCount" />
+        <span class="C_cancel" @click="cancel">Cancel</span>
+    </div>
+</div>

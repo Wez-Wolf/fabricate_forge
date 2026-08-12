@@ -1,7 +1,6 @@
 
-
 ## codebase-map
-# Auto-scanned: 2026-08-10
+# Auto-scanned: 2026-08-12
 
 project: fabricate_forge
 framework: unknown
@@ -64,6 +63,31 @@ tree:
       - library.css
       - library.html
       - library.js
+      - fasteners/
+        - fasteners.html
+        - fasteners.js
+      - fittings/
+        - fittings.html
+        - fittings.js
+      - flanges/
+        - flanges.html
+        - flanges.js
+      - pipe/
+        - pipe.html
+        - pipe.js
+      - plates/
+        - plates.html
+        - plates.js
+      - sections/
+        - sections.html
+        - sections.js
+      - tube/
+        - tube.html
+        - tube.js
+    - materialedit/
+      - materialedit.css
+      - materialedit.html
+      - materialedit.js
     - materiallist/
       - materiallist.css
       - materiallist.html
@@ -76,6 +100,10 @@ tree:
       - nav.css
       - nav.html
       - nav.js
+    - onboard/
+      - onboard.css
+      - onboard.html
+      - onboard.js
     - orders/
       - orders.css
       - orders.html
@@ -124,23 +152,48 @@ tree:
       - settings.css
       - settings.html
       - settings.js
+    - suppliers/
+      - suppliers.css
+      - suppliers.html
+      - suppliers.js
+    - takeoffsplit/
+      - takeoffsplit.css
+      - takeoffsplit.html
+      - takeoffsplit.js
     - tools/
       - tools.css
       - tools.html
       - tools.js
+  - data/
+    - backups/
+    - md/
+      - 3D_BENDS_DATA/
+      - FLANGE_ASME_B16_5_CLASS_600_RTJ/
+      - Flanges_TS_-28_07_26/
+      - PB23068_EX_MUG_Sandsloot_Decline_Piping_Tender_BoQ_03_08_2026_REV_3/
+      - PIPE_DETAILS__SUMMARY_A106B-SANS_719-SANS_62/
+      - PIPE_FITTING_DATA/
+      - PIPE_FITTING_DATA-_MASTER_TABLE_AS_RANGE/
   - lib/
     - config.php
     - init.php
     - svg.php
     - vue.php
   - scripts/
-    - seed-materials.php
-    - seed-prefabs.php
-    - seed-test-quote.php
+    - build-boq-import.php
+    - build-fittings-seed.js
+    - build-flanges-seed.js
+    - build-pipes-seed.js
+    - get_sheet_names.py
+    - get_sheets.py
+    - import-boq-quote.php
+    - seed-edit-test.php
   - seed-data/
     - fasteners.json
     - fittings.json
+    - flanges.json
     - materials.json
+    - pipes.json
   - tests/
     - phases/
 
@@ -158,11 +211,11 @@ external_deps:
   - api
 
 file_counts:
-  php: 30
+  php: 40
   vue: 0
-  js/ts: 26
-  styles: 27
-  docs: 3
+  js/ts: 41
+  styles: 31
+  docs: 41
 
 symbols:
   components:
@@ -178,6 +231,8 @@ design_system:
     - --accent: #3b82f6
     - --accent-hover: #3b82f6
     - --accent-hover: #60a5fa
+    - --accent-soft: #dbeafe
+    - --accent-soft: rgba(59,130,246,0.15)
     - --bg: #0f172a
     - --bg: #f8fafc
     - --border: #475569
@@ -192,11 +247,32 @@ design_system:
     - --secondary: #7c3aed
     - --secondary: #8b5cf6
     - --text: #1e293b
-    - --text-dim: #64748b
-    - --text-dim: #cbd5e1
   fonts:
     - Inter
     - Inter,-apple-system,sans-serif
+    - var
 
 key_files:
   # (add contextual notes as you discover work)
+
+## Domain glossary
+
+- **Quote** — a customer quotation. An `entity` row with type='quote'; carries customer info, currency, validity, margin, status + history in its data JSONB. Lifecycle: draft → submitted → approved → invoiced (rejected from submitted; every state can return to draft).
+- **Entity** — anything costed inside a quote: part | assembly | fastener | quote. Owns components and links. Belongs to exactly one quote via quote_id.
+- **Component** — typed data block attached to an entity: basic, dimensions, material, cost, process, rate, specification, notes, status, cadData. Merged via jsonb (partial patches).
+- **Link** — relationship between two entities: contains (parent→child, the BOM edge), references, suppliedBy, uses, dependsOn, relatedTo. Carries a quantity.
+- **BOM** — bill of materials = the `contains` link tree rooted at a quote/assembly. Tree tab renders it recursively; cost rolls up children.
+- **Prefab** — reusable assembly template (prefab_template). Instantiate = copy its ECS tree into a quote (with server-side recalc); Bake = save a quote's assembly as a template.
+- **Cost columns (12)** — material, boilerHrs, weldHrs, machHrs, labor, consumables, services, ndt, lining, paint, transport, total. The quoteview overview grid + reports key on these.
+- **Trade** — process discipline the cost engine prices: boilermaking, welding, machining, painting, assembly, qualityControl, surfaceTreatment, cutting, drilling, grinding, bending.
+- **Margin** — quote.data.marginPercent → user_prefs.defaultMarkupPercent → default chain; per-entity override via entity.data.marginPercent.
+- **Procurement docs** — Purchase Order (po), Supplier Quote (sq, against a material), Received Goods (rg). Form a simple 3-table purchasing flow.
+- **Production record** — actual vs estimated hours per entity+trade; variance rows derived at record time.
+
+## Architecture decisions (ADRs)
+
+- **ECS data model kept from Meteor** — entity/component/link with uniform `(id, type, data JSONB, owner)` shape; generic handlers. Hard to reverse (every table/endpoint builds on it).
+- **Real-time dropped** — no DDP/websockets in the port; REST + orchestration endpoints (systems.load_quote = one call for quote+entities+costs+totals). Plan doc's DDP mapping is legacy, never implemented.
+- **Server-side cost math** — calculators (tools.php) and quote costs (cost.php) share one engine so tool results always equal quote numbers.
+- **Quote detail is a page, not a tab** — /nav/quotes/<id> mounts quoteview via forge-nav.setPage; nav re-resolves on onPathChange so back/forward restores the list.
+- **dispatchIfEntry guard** — cross-endpoint includes (quotes→systems→cost) never double-dispatch; each file dispatches only as the HTTP entry.

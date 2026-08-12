@@ -1,0 +1,35 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <div>
+            <h1 class="C_title">Suppliers</h1>
+            <p class="C_subtitle">Material suppliers and their pricing contacts.</p>
+        </div>
+        <forge-button label="+ New Supplier" @click="openNew" />
+    </div>
+
+    <div v-if="error" class="C_error">{{ error }}</div>
+
+    <div class="C_toolbar">
+        <forge-search class="C_search" place_holder="Search suppliers..." @onSearch="onSearch" />
+    </div>
+
+    <div v-if="loading" class="C_loading">
+        <forge-loader variant="dots" label="Loading suppliers..." />
+    </div>
+
+    <div class="C_list">
+        <forge-list
+            v-if="!loading"
+            :fields="fields"
+            :value="rows"
+            :search="search"
+            @onFetch="onFetch"
+            @onSelect="onSelect"
+            @onSvg="onSvg"
+        />
+        <div v-if="!loading && !rows.length" class="C_empty">
+            <p>No suppliers yet.</p>
+            <forge-button label="Add your first supplier" @click="openNew" />
+        </div>
+    </div>
+</div>

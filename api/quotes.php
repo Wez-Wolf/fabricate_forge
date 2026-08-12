@@ -65,7 +65,7 @@ class quotes extends Base
             $clientRes = $this->pgCrud->read([
                 'table' => 'client',
                 'where' => 'id = $1 AND user_id_owner = $2',
-                'params' => [$clientId, $this->user_id],
+                'params' => [$clientId, $this->effOwnerId()],
                 'limit' => 1,
             ]);
             $client = $clientRes['data'][0] ?? null;
@@ -99,7 +99,7 @@ class quotes extends Base
                 'name' => $name,
                 'description' => \getVal($input, 'description', ''),
                 'data' => $data,
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -114,7 +114,7 @@ class quotes extends Base
         $id = \getVal($input, 'id') ?: \getVal($input, 'quote_id');
         if (!$id) return ['error' => 'quote_id is required.'];
         $systems = new \api\systems();
-        $systems->user_id = $this->user_id;
+        $systems->user_id = $this->effOwnerId();
         return $systems->handle_load_quote(['quote_id' => $id]);
     }
 
@@ -124,7 +124,7 @@ class quotes extends Base
     public function handle_list($input = [])
     {
         $systems = new \api\systems();
-        $systems->user_id = $this->user_id;
+        $systems->user_id = $this->effOwnerId();
         return $systems->handle_list_quotes($input);
     }
 
@@ -184,7 +184,7 @@ class quotes extends Base
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE entity SET " . implode(', ', $sets) .
@@ -236,7 +236,7 @@ class quotes extends Base
         $this->pgCrud->execute(
             "UPDATE entity SET data = data || \$2::jsonb, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$3",
-            [$id, json_encode(['status' => $newStatus, 'statusHistory' => $history]), $this->user_id]
+            [$id, json_encode(['status' => $newStatus, 'statusHistory' => $history]), $this->effOwnerId()]
         );
         return ['id' => $id, 'status' => $newStatus, 'statusHistory' => $history];
     }
@@ -269,7 +269,7 @@ class quotes extends Base
         $this->pgCrud->execute(
             "UPDATE entity SET is_active = FALSE, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$2 AND type = 'quote'",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }
@@ -294,12 +294,12 @@ class quotes extends Base
         $this->pgCrud->execute(
             "UPDATE entity SET quote_id = \$1, updated_at = NOW()
              WHERE id = \$2 AND user_id_owner = \$3",
-            [$quoteId, $entityId, $this->user_id]
+            [$quoteId, $entityId, $this->effOwnerId()]
         );
 
         // Recalculate the quote total (ECS flow)
         $systems = new \api\systems();
-        $systems->user_id = $this->user_id;
+        $systems->user_id = $this->effOwnerId();
         return $systems->handle_load_quote(['quote_id' => $quoteId]);
     }
 
@@ -335,7 +335,7 @@ class quotes extends Base
                 'description' => \getVal($it, 'description', ''),
                 'quote_id' => $quoteId,
                 'quantity' => max(1, (int)\getVal($it, 'quantity', 1)),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ];
             $extra = \getVal($it, 'data', []);
             if (is_array($extra) && !empty($extra)) $row['data'] = $extra;
@@ -347,7 +347,7 @@ class quotes extends Base
 
         // Single recalc + return the fresh quote (batch cost = one pass)
         $systems = new \api\systems();
-        $systems->user_id = $this->user_id;
+        $systems->user_id = $this->effOwnerId();
         $loaded = $systems->handle_load_quote(['quote_id' => $quoteId]);
         if (!isset($loaded['error'])) $loaded['items_created'] = count($created);
         return $loaded;
@@ -365,11 +365,11 @@ class quotes extends Base
         $this->pgCrud->execute(
             "UPDATE entity SET quote_id = NULL, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$2",
-            [$entityId, $this->user_id]
+            [$entityId, $this->effOwnerId()]
         );
 
         $systems = new \api\systems();
-        $systems->user_id = $this->user_id;
+        $systems->user_id = $this->effOwnerId();
         return $systems->handle_load_quote(['quote_id' => $quoteId]);
     }
 

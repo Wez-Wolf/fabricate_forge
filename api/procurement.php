@@ -79,7 +79,7 @@ SQL);
     public function handle_po_list($input = [])
     {
         $where = 'user_id_owner = $1';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
         $status = \getVal($input, 'status');
         if ($status) {
@@ -110,7 +110,7 @@ SQL);
                 'status' => 'draft',
                 'expected_date' => \getVal($input, 'expected_date'),
                 'notes' => \getVal($input, 'notes', ''),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -137,7 +137,7 @@ SQL);
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE purchase_order SET " . implode(', ', $sets) .
@@ -159,7 +159,7 @@ SQL);
         $this->pgCrud->execute(
             "UPDATE purchase_order SET status = \$1, updated_at = NOW()
              WHERE id = \$2 AND user_id_owner = \$3",
-            [$status, $id, $this->user_id]
+            [$status, $id, $this->effOwnerId()]
         );
         return $this->poGet($id);
     }
@@ -172,7 +172,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'supplier_quote',
             'where' => 'user_id_owner = $1',
-            'params' => [$this->user_id],
+            'params' => [$this->effOwnerId()],
             'order_fields' => ['created_at DESC'],
             'limit' => min(max($limit, 1), 500),
         ]);
@@ -191,7 +191,7 @@ SQL);
                 'lead_time_days' => \getVal($input, 'lead_time_days', 14),
                 'valid_until' => \getVal($input, 'valid_until'),
                 'notes' => \getVal($input, 'notes', ''),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -199,7 +199,7 @@ SQL);
         return $this->pgCrud->read([
             'table' => 'supplier_quote',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? $id;
     }
@@ -212,7 +212,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'received_goods',
             'where' => 'user_id_owner = $1',
-            'params' => [$this->user_id],
+            'params' => [$this->effOwnerId()],
             'order_fields' => ['received_date DESC'],
             'limit' => min(max($limit, 1), 500),
         ]);
@@ -227,7 +227,7 @@ SQL);
                 'purchase_order_id' => \getVal($input, 'purchase_order_id'),
                 'items' => \getVal($input, 'items', []),
                 'notes' => \getVal($input, 'notes', ''),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -235,7 +235,7 @@ SQL);
         return $this->pgCrud->read([
             'table' => 'received_goods',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? $id;
     }
@@ -248,7 +248,7 @@ SQL);
         return $this->pgCrud->read([
             'table' => 'purchase_order',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
     }

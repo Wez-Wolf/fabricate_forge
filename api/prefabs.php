@@ -68,7 +68,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'prefab_template',
             'where' => '(user_id_owner IS NULL OR user_id_owner = $1) AND is_active = TRUE',
-            'params' => [$this->user_id],
+            'params' => [$this->effOwnerId()],
             'order_fields' => ['name ASC'],
         ]);
         return $res['data'] ?? [];
@@ -81,7 +81,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'prefab_template',
             'where' => 'id = $1 AND (user_id_owner IS NULL OR user_id_owner = $2)',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ]);
         $row = $res['data'][0] ?? null;
@@ -108,7 +108,7 @@ SQL);
                 'description' => \getVal($input, 'description', ''),
                 'template_data' => $templateData,
                 'version' => \getVal($input, 'version', 1),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -146,7 +146,7 @@ SQL);
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE prefab_template SET " . implode(', ', $sets) .
@@ -163,7 +163,7 @@ SQL);
         $this->pgCrud->execute(
             "UPDATE prefab_template SET is_active = FALSE, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }
@@ -182,7 +182,7 @@ SQL);
 
         // Ownership check on the assembly (must belong to the quote)
         $entities = new \api\entities();
-        $entities->user_id = $this->user_id;
+        $entities->user_id = $this->effOwnerId();
         $entity = $this->getEntity($assemblyId);
         if (!$entity || ($entity['quote_id'] ?? null) !== $quoteId) {
             return ['error' => 'assembly-not-found', 'error_code' => 404];
@@ -193,7 +193,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'entity',
             'where' => 'quote_id = $1 AND user_id_owner = $2 AND is_active = TRUE',
-            'params' => [$quoteId, $this->user_id],
+            'params' => [$quoteId, $this->effOwnerId()],
         ]);
         foreach (($res['data'] ?? []) as $it) {
             $items[] = [
@@ -274,7 +274,7 @@ SQL);
                     'type' => 'process',
                     'data' => $processData,
                     'quote_id' => $quoteId,
-                    'user_id_owner' => $this->user_id,
+                    'user_id_owner' => $this->effOwnerId(),
                 ],
             ]);
         }
@@ -292,7 +292,7 @@ SQL);
                 'child_ids' => $childIds,
                 'instance_data' => $templateData,
                 'version_at_instantiation' => (int)\getVal($prefab, 'version', 1),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         $instanceId = $instRes['data']['id'] ?? null;
@@ -301,7 +301,7 @@ SQL);
         $recalc = null;
         try {
             $systems = new \api\systems();
-            $systems->user_id = $this->user_id;
+            $systems->user_id = $this->effOwnerId();
             $recalc = $systems->handle_recalculate_quote(['quote_id' => $quoteId]);
         } catch (\Throwable $e) {
             $recalc = ['error' => 'recalc failed (non-fatal): ' . $e->getMessage()];
@@ -327,7 +327,7 @@ SQL);
                 'quote_id' => $data['quote_id'],
                 'quantity' => $data['quantity'] ?? 1,
                 'data' => $data['data'] ?? [],
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         return $res['data']['id'] ?? null;
@@ -342,7 +342,7 @@ SQL);
                 'to_id' => $toId,
                 'type' => $type,
                 'quantity' => $quantity,
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
     }
@@ -401,7 +401,7 @@ SQL);
                         'type' => 'material',
                         'data' => $materialData,
                         'quote_id' => $quoteId,
-                        'user_id_owner' => $this->user_id,
+                        'user_id_owner' => $this->effOwnerId(),
                     ],
                 ]);
             }
@@ -439,7 +439,7 @@ SQL);
         if (!$profileType) return null;
 
         $materials = new \api\materials();
-        $materials->user_id = $this->user_id;
+        $materials->user_id = $this->effOwnerId();
         $matches = $materials->handle_match(['search' => $profileType]);
         if (isset($matches['error']) || !is_array($matches) || count($matches) === 0) return null;
 

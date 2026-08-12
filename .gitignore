@@ -19,3 +19,5 @@
 
 # ── Test artifacts ──
 /tests/tmp/
+/data/
+/screenshots/

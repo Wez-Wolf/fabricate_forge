@@ -28,6 +28,7 @@ body,html{margin:0;padding:0;overflow:hidden;
     --text:#f8fafc;--text-dim:#cbd5e1;--text-muted:#94a3b8;
     /* Brand blue */
     --accent:#3b82f6;--accent-hover:#60a5fa;
+    --accent-soft:rgba(59,130,246,0.15);
     --success:#10b981;--warning:#f59e0b;--error:#ef4444;--info:#06b6d4;
     --text-on-color:#ffffff;
     --secondary:#8b5cf6;
@@ -41,6 +42,7 @@ body,html{margin:0;padding:0;overflow:hidden;
     --border:#cbd5e1;--border-hover:#94a3b8;
     --text:#1e293b;--text-dim:#64748b;--text-muted:#94a3b8;
     --accent:#2563eb;--accent-hover:#3b82f6;
+    --accent-soft:#dbeafe;
     --success:#059669;--warning:#d97706;--error:#dc2626;--info:#0284c7;
     --text-on-color:#ffffff;
     --secondary:#7c3aed;
@@ -111,6 +113,9 @@ body,html{margin:0;padding:0;overflow:hidden;
     --forge-input-error: var(--error);
     --form_input_readonly_color: var(--text-muted);
     --form_label_color: var(--text-dim);
+    /* forge-select (dropdown trigger — materialselect/clientselect pickers) */
+    --select_background_color: var(--surface);
+    --select_color: var(--text);
 
     /* forge-popup */
     --forge-popup-bg: var(--surface);

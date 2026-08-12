@@ -158,7 +158,7 @@ class process extends Base
     private function getAllEffectiveRates($entityId)
     {
         $ratesApi = new \api\rates();
-        $ratesApi->user_id = $this->user_id;
+        $ratesApi->user_id = $this->effOwnerId();
         return $ratesApi->handle_get_all_effective(['entity_id' => $entityId]);
     }
 

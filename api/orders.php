@@ -50,7 +50,7 @@ SQL);
     public function handle_list($input = [])
     {
         $where = 'user_id_owner = $1';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
 
         $status = \getVal($input, 'status');
@@ -87,7 +87,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'order',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ]);
         $row = $res['data'][0] ?? null;
@@ -114,7 +114,7 @@ SQL);
                 'total_value' => \getVal($input, 'total_value', 0),
                 'delivery_date' => \getVal($input, 'delivery_date'),
                 'notes' => \getVal($input, 'notes', ''),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -146,7 +146,7 @@ SQL);
 
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         $this->pgCrud->execute(
             "UPDATE \"order\" SET " . implode(', ', $sets) .
@@ -174,7 +174,7 @@ SQL);
         $this->pgCrud->execute(
             "UPDATE \"order\" SET status = \$1, updated_at = NOW()
              WHERE id = \$2 AND user_id_owner = \$3",
-            [$status, $id, $this->user_id]
+            [$status, $id, $this->effOwnerId()]
         );
         return $this->handle_get(['id' => $id]);
     }
@@ -188,7 +188,7 @@ SQL);
         if (!$id) return ['error' => 'order_id is required.'];
         $this->pgCrud->execute(
             "DELETE FROM \"order\" WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }

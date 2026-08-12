@@ -62,13 +62,13 @@ SQL);
             $this->pgCrud->execute(
                 "UPDATE company_settings SET data = data || \$2::jsonb, updated_at = NOW()
                  WHERE user_id_owner = \$1",
-                [$this->user_id, json_encode($patch)]
+                [$this->effOwnerId(), json_encode($patch)]
             );
         } else {
             $this->pgCrud->save([
                 'table' => 'company_settings',
                 'data' => [
-                    'user_id_owner' => $this->user_id,
+                    'user_id_owner' => $this->effOwnerId(),
                     'data' => $patch,
                 ],
             ]);
@@ -131,7 +131,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'company_settings',
             'where' => 'user_id_owner = $1',
-            'params' => [$this->user_id],
+            'params' => [$this->effOwnerId()],
             'limit' => 1,
         ]);
         return $res['data'][0] ?? null;

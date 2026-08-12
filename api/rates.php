@@ -195,7 +195,7 @@ SQL);
                         'type' => 'rate',
                         'data' => [$trade => (float)$rate],
                         'quote_id' => $this->getEntity($entityId)['quote_id'] ?? null,
-                        'user_id_owner' => $this->user_id,
+                        'user_id_owner' => $this->effOwnerId(),
                     ],
                 ]);
             }
@@ -224,13 +224,13 @@ SQL);
                 "UPDATE company_settings
                  SET data = jsonb_set(data, '{defaultRates}', \$2::jsonb), updated_at = NOW()
                  WHERE user_id_owner = \$1",
-                [$this->user_id, json_encode($merged)]
+                [$this->effOwnerId(), json_encode($merged)]
             );
         } else {
             $this->pgCrud->save([
                 'table' => 'company_settings',
                 'data' => [
-                    'user_id_owner' => $this->user_id,
+                    'user_id_owner' => $this->effOwnerId(),
                     'data' => ['defaultRates' => $merged],
                 ],
             ]);
@@ -246,7 +246,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'company_settings',
             'where' => 'user_id_owner = $1',
-            'params' => [$this->user_id],
+            'params' => [$this->effOwnerId()],
             'limit' => 1,
         ]);
         return $res['data'][0] ?? null;

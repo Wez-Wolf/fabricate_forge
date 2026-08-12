@@ -71,11 +71,68 @@ SQL);
     {
         $res = parent::handle_signup($input);
         if (!empty($res['auth_id'])) {
+            // Pending team invite (by email)? Auto-join the team on signup.
+            $email = strtolower(trim((string)($input['email'] ?? '')));
+            $joined = false;
+            if ($email) {
+                $inv = $this->pgCrud->read([
+                    'table' => 'pending_invite',
+                    'fields' => ['id', 'team_id'],
+                    'where' => 'lower(email) = $1',
+                    'params' => [$email],
+                    'limit' => 1,
+                ]);
+                if (!empty($inv['data'][0]['team_id'])) {
+                    $this->pgCrud->save([
+                        'table' => 'team_member',
+                        'data' => [
+                            'team_id' => $inv['data'][0]['team_id'],
+                            'user_id' => $res['user_id'],
+                        ],
+                    ]);
+                    $this->pgCrud->execute(
+                        'DELETE FROM pending_invite WHERE id = $1',
+                        [$inv['data'][0]['id']]
+                    );
+                    $joined = true;
+                }
+            }
+
+            // Invite link (?invite=CODE) — resolved from the input or the
+            // fab_invite cookie set at boot (see index.php).
+            if (!$joined) {
+                $code = strtoupper(trim((string)(
+                    $input['invite_code'] ?? ($_COOKIE['fab_invite'] ?? '')
+                )));
+                if ($code) {
+                    $t = $this->pgCrud->read([
+                        'table' => 'team',
+                        'fields' => ['id', 'name'],
+                        'where' => 'invite_code = $1',
+                        'params' => [$code],
+                        'limit' => 1,
+                    ]);
+                    $team = $t['data'][0] ?? null;
+                    if ($team) {
+                        $this->pgCrud->save([
+                            'table' => 'team_member',
+                            'data' => ['team_id' => $team['id'], 'user_id' => $res['user_id']],
+                        ]);
+                        $joined = true;
+                        // Tell the app to greet the new member post-signup.
+                        setcookie('fab_joined', $team['name'], time() + 3600, '/');
+                    }
+                    // Consume the cookie either way (single-use link).
+                    setcookie('fab_invite', '', time() - 3600, '/');
+                }
+            }
+
             $prefs = $this->getPrefs($res['user_id'] ?? null);
             return ['data' => [
                 'auth_id' => $res['auth_id'],
                 'user_id' => $res['user_id'],
                 'preferences' => $prefs['data'] ?? [],
+                'joined_team' => $joined,
             ]];
         }
         return $res; // error passthrough (e.g. Email already registered 409)

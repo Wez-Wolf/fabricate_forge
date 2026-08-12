@@ -1,0 +1,122 @@
+/* components/onboard — invite-link signup page */
+
+.C_page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: var(--bg, #0f172a);
+}
+
+.C_card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface, #1e293b);
+    border: 1px solid var(--border, #334155);
+    border-radius: 14px;
+    padding: 2.25rem 2rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.C_brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+}
+
+.C_logo { width: 28px; height: 28px; }
+
+.C_brand_name {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text, #e2e8f0);
+}
+
+.C_center { display: flex; justify-content: center; padding: 2rem 0; }
+
+.C_invite_head { margin-bottom: 1.5rem; text-align: center; }
+
+.C_eyebrow {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent, #60a5fa);
+    margin-bottom: 0.5rem;
+}
+
+.C_title {
+    font-size: 1.45rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--text, #e2e8f0);
+}
+
+.C_team { color: var(--accent, #60a5fa); }
+
+.C_sub {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-dim, #94a3b8);
+    line-height: 1.5;
+}
+
+.C_error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--error, #ef4444);
+    color: var(--error, #f87171);
+    padding: 0.65rem 0.9rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+
+.C_form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.C_label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim, #94a3b8);
+}
+
+.C_opt {
+    font-weight: 400;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.C_input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border, #334155);
+    border-radius: 8px;
+    background: var(--surface-2, #0f172a);
+    color: var(--text, #e2e8f0);
+    font-size: 0.95rem;
+}
+
+.C_input:focus {
+    outline: none;
+    border-color: var(--accent, #60a5fa);
+}
+
+.C_foot {
+    margin: 1.25rem 0 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-dim, #94a3b8);
+}
+
+.C_link {
+    color: var(--accent, #60a5fa);
+    cursor: pointer;
+    font-weight: 600;
+}

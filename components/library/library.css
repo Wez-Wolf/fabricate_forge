@@ -131,3 +131,78 @@
     text-align: center;
     color: var(--text-dim);
 }
+
+/* ── Type tabs ── */
+.C_type_tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-bottom: 0.75rem;
+}
+
+.C_type_tab {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.C_type_tab:hover {
+    background: var(--surface-hover, var(--border));
+}
+
+.C_type_tab.C_active {
+    background: var(--accent);
+    color: var(--color_text_light);
+    border-color: var(--accent);
+    font-weight: 600;
+}
+
+.C_count {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+/* ── Visual indicator: colour badge dot before the material name ── */
+.C_mat_dot {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 999px;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.C_supplier {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+/* ── Colour legend ── */
+.C_legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 0.875rem;
+    margin-bottom: 0.75rem;
+    padding: 0.375rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+}
+
+.C_legend_item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.C_legend_item i {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+}

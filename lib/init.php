@@ -44,15 +44,13 @@ echo <<<'JS'
     }
     if (!authed && parts.length === 1) {
       var p = parts[0] || '';
-      if (p === 'login' || p === 'signup' || p === 'join' || p === 'forgot-password') {
-        if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }
+      if (p === 'login' || p === 'signup' || p === 'join') {
+        if (p === 'join') { MAIN.setComp('onboard', {}); return; }
         if (_pp) _pp(parts);
         return;
       }
-      if (p === 'landing') {
-        MAIN.setComp('landing', {});
-        return;
-      }
+      if (p === 'onboard') { MAIN.setComp('onboard', {}); return; }
+      if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }
       // any other single-segment while logged out → landing (welcome-first)
       MAIN.setComp('landing', {});
       return;
@@ -78,7 +76,11 @@ echo "    var authed = LS && LS.get('auth_id') && LS.get('auth_id') !== '-100';"
 echo "    if (!authed && parts.length >= 2 && parts[0] === 'reset-password') { MAIN.setComp('reset', {}); return; }";
 echo "    if (!authed && parts.length === 1) {";
 echo "      var p = parts[0] || '';";
-echo "      if (p === 'login' || p === 'signup' || p === 'join') { if (_pp2) _pp2(parts); return; }";
+echo "      if (p === 'login' || p === 'signup' || p === 'join') {
+      if (p === 'join') { MAIN.setComp('onboard', {}); return; }
+      if (_pp2) _pp2(parts); return;
+    }
+    if (p === 'onboard') { MAIN.setComp('onboard', {}); return; }";
 echo "      if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }";
 echo "      MAIN.setComp('landing', {}); return;";
 echo "    }";
@@ -86,7 +88,7 @@ echo "    if (_pp2) _pp2(parts);";
 echo "  };";
 echo "  var c = ROUTER.decodePath();";
 echo "  var op = window._origPath || '';";
-echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && op && (op === 'landing' || op === 'forgot-password' || op.indexOf('reset-password/') === 0)) {";
+echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && op && (op === 'landing' || op === 'onboard' || op === 'forgot-password' || op.indexOf('reset-password/') === 0)) {";
 echo "    try { ROUTER.navigate('/' + op); } catch(e) {}";
 echo "    MAIN.processPath(ROUTER.decodePath());";
 echo "  }";
@@ -114,7 +116,11 @@ echo "    var authed = LS && LS.get('auth_id') && LS.get('auth_id') !== '-100';"
 echo "    if (!authed && parts.length >= 2 && parts[0] === 'reset-password') { MAIN.setComp('reset', {}); return; }";
 echo "    if (!authed && parts.length === 1) {";
 echo "      var p = parts[0] || '';";
-echo "      if (p === 'login' || p === 'signup' || p === 'join') { if (_pp2) _pp2(parts); return; }";
+echo "      if (p === 'login' || p === 'signup' || p === 'join') {
+      if (p === 'join') { MAIN.setComp('onboard', {}); return; }
+      if (_pp2) _pp2(parts); return;
+    }
+    if (p === 'onboard') { MAIN.setComp('onboard', {}); return; }";
 echo "      if (p === 'forgot-password') { MAIN.setComp('forgot', {}); return; }";
 echo "      MAIN.setComp('landing', {}); return;";
 echo "    }";
@@ -122,7 +128,7 @@ echo "    if (_pp2) _pp2(parts);";
 echo "  };";
 echo "  var c = ROUTER.decodePath();";
 echo "  var op = window._origPath || '';";
-echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && op && (op === 'landing' || op === 'forgot-password' || op.indexOf('reset-password/') === 0)) {";
+echo "  if (!(LS && LS.get('auth_id') && LS.get('auth_id') !== '-100') && op && (op === 'landing' || op === 'onboard' || op === 'forgot-password' || op.indexOf('reset-password/') === 0)) {";
 echo "    try { ROUTER.navigate('/' + op); } catch(e) {}";
 echo "    MAIN.processPath(ROUTER.decodePath());";
 echo "  }";

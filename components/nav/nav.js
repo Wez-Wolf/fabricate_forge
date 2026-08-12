@@ -25,6 +25,7 @@ var comp = {
                 { tag: 'dashboard', name: 'Dashboard', svg: 'layout-dashboard', comp: 'dashboard' },
                 { tag: 'quotes',    name: 'Quotes',    svg: 'file-text',        comp: 'quotes' },
                 { tag: 'clients',   name: 'Clients',   svg: 'users',            comp: 'clients' },
+                { tag: 'suppliers', name: 'Suppliers', svg: 'truck',            comp: 'suppliers' },
                 { tag: 'library',   name: 'Library',   svg: 'library',          comp: 'library' },
                 { tag: 'tools',     name: 'Tools',     svg: 'calculator',       comp: 'tools' },
                 { tag: 'prefabs',   name: 'Prefabs',   svg: 'boxes',            comp: 'prefabs' },
@@ -48,6 +49,8 @@ var comp = {
         }
         this.loadUser();
         this.$root.$on('user-updated', function() { self.loadUser(); });
+        // Authed user opened an invite link → join the team, consume the cookie.
+        this.consumeInvite();
         // Sync theme state from DOM (theme-init already applied it pre-paint)
         this.isDark = document.documentElement.classList.contains('dark');
         // Authed user landing on /login → redirect to default tab
@@ -88,6 +91,30 @@ var comp = {
         },
     },
     methods: {
+        // Invite link (?invite=CODE): authed user joining a team.
+        // Cookie was set at boot (index.php) before the router navigated.
+        consumeInvite() {
+            var self = this;
+            var m = document.cookie.match(/(?:^|; )fab_invite=([A-Za-z0-9]+)/);
+            if (m) {
+                WEB.api('./api/team.php', {
+                    action: 'join',
+                    input: { invite_code: m[1] },
+                }).then(function (r) {
+                    var d = (r && r.data) || r || {};
+                    if (d.status === 'joined') {
+                        TOAST.show('You joined ' + (d.team_name || 'the team'), 'success');
+                    }
+                }).catch(function () {});
+            }
+            // Post-signup welcome: server set fab_joined=<team> when the new
+            // account auto-joined via an invite link.
+            var j = document.cookie.match(/(?:^|; )fab_joined=([^;]+)/);
+            if (j) {
+                try { document.cookie = 'fab_joined=; path=/; max-age=0'; } catch (e) {}
+                TOAST.show('Welcome to ' + decodeURIComponent(j[1]) + '!', 'success');
+            }
+        },
         // Brand click → default tab
         onHome() {
             ROUTER.navigate('/nav/dashboard');

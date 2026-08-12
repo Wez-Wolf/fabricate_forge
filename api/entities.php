@@ -39,7 +39,7 @@ class entities extends Base
         $limit = min(max($limit, 1), 200);
 
         $where = 'user_id_owner = $1 AND is_active = TRUE';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
 
         if ($type) {
@@ -162,7 +162,7 @@ class entities extends Base
                 'quote_id' => \getVal($input, 'quote_id'),
                 'quantity' => \getVal($input, 'quantity', 1),
                 'data' => $data,
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
 
@@ -212,7 +212,7 @@ class entities extends Base
         }
         $sets[] = 'updated_at = NOW()';
         $params[] = $id;
-        $params[] = $this->user_id;
+        $params[] = $this->effOwnerId();
 
         if (count($sets) === 1) {
             return ['error' => 'Nothing to update.'];
@@ -239,7 +239,7 @@ class entities extends Base
         $res = $this->pgCrud->execute(
             "UPDATE entity SET is_active = FALSE, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }
@@ -259,7 +259,7 @@ class entities extends Base
     {
         $res = $this->pgCrud->read([
             'sql' => "SELECT COUNT(*)::int AS count FROM component WHERE entity_id = \$1 AND user_id_owner = \$2",
-            'params' => [$entityId, $this->user_id],
+            'params' => [$entityId, $this->effOwnerId()],
         ]);
         return (int)($res['data'][0]['count'] ?? 0);
     }

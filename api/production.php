@@ -78,7 +78,7 @@ SQL);
                 'actual_hours' => $actual,
                 'date_completed' => \getVal($input, 'date_completed') ?: date('c'),
                 'notes' => \getVal($input, 'notes', ''),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
         if (!empty($res['error'])) return $res;
@@ -96,7 +96,7 @@ SQL);
                 'actual_hours' => $actual,
                 'variance' => $diff,
                 'variance_percent' => round(($diff / $estimated) * 100, 2),
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ];
             $this->pgCrud->save([
                 'table' => 'production_variance',
@@ -107,7 +107,7 @@ SQL);
         $record = $this->pgCrud->read([
             'table' => 'production_record',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
 
@@ -120,7 +120,7 @@ SQL);
     public function handle_record_list($input = [])
     {
         $where = 'user_id_owner = $1';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
         foreach (['quote_id', 'entity_id', 'trade'] as $col) {
             $v = \getVal($input, $col);
@@ -152,7 +152,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'production_variance',
             'where' => 'entity_id = $1 AND user_id_owner = $2',
-            'params' => [$entityId, $this->user_id],
+            'params' => [$entityId, $this->effOwnerId()],
             'order_fields' => ['created_at DESC'],
         ]);
         return $res['data'] ?? [];
@@ -169,7 +169,7 @@ SQL);
         $res = $this->pgCrud->read([
             'table' => 'production_record',
             'where' => 'quote_id = $1 AND user_id_owner = $2',
-            'params' => [$quoteId, $this->user_id],
+            'params' => [$quoteId, $this->effOwnerId()],
         ]);
         $records = $res['data'] ?? [];
         $totalEst = 0.0;

@@ -33,7 +33,7 @@ class reports extends Base
         $res = $this->pgCrud->read([
             'table' => 'entity',
             'where' => 'type = $1 AND user_id_owner = $2 AND is_active = TRUE',
-            'params' => ['quote', $this->user_id],
+            'params' => ['quote', $this->effOwnerId()],
             'order_fields' => ['created_at ASC'],
         ]);
         return $res['data'] ?? [];
@@ -69,7 +69,7 @@ class reports extends Base
                 'table' => 'client',
                 // JSONB-array param — pg_query_params can't bind a PHP array directly
                 'where' => 'id IN (SELECT value::uuid FROM jsonb_array_elements_text($1::jsonb) AS t(value)) AND user_id_owner = $2',
-                'params' => [json_encode(array_keys($clientIds)), $this->user_id],
+                'params' => [json_encode(array_keys($clientIds)), $this->effOwnerId()],
             ]);
             foreach (($res['data'] ?? []) as $c) {
                 $clientMap[$c['id']] = $c['company_name'] ?? $c['primary_contact'] ?? 'Unknown';
@@ -136,7 +136,7 @@ class reports extends Base
         $quoteId = \getVal($input, 'quote_id');
 
         $where = 'user_id_owner = $1 AND is_active = TRUE';
-        $params = [$this->user_id];
+        $params = [$this->effOwnerId()];
         $idx = 2;
         if ($quoteId) {
             $where .= " AND quote_id = \${$idx}";
@@ -156,13 +156,13 @@ class reports extends Base
         $procRes = $this->pgCrud->read([
             'table' => 'component',
             'where' => 'type = $1 AND user_id_owner = $2 AND entity_id IN (SELECT value::uuid FROM jsonb_array_elements_text($3::jsonb) AS t(value))',
-            'params' => ['process', $this->user_id, $idParam],
+            'params' => ['process', $this->effOwnerId(), $idParam],
         ]);
         // Per-trade COST from cost components (already priced by the cost engine)
         $costRes = $this->pgCrud->read([
             'table' => 'component',
             'where' => 'type = $1 AND user_id_owner = $2 AND entity_id IN (SELECT value::uuid FROM jsonb_array_elements_text($3::jsonb) AS t(value))',
-            'params' => ['cost', $this->user_id, $idParam],
+            'params' => ['cost', $this->effOwnerId(), $idParam],
         ]);
 
         $hoursByTrade = [];
@@ -211,7 +211,7 @@ class reports extends Base
         $settings = $this->pgCrud->read([
             'table' => 'company_settings',
             'where' => 'user_id_owner = $1',
-            'params' => [$this->user_id],
+            'params' => [$this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
         if ($settings && isset($settings['data']['defaultMarkupPercent'])) {

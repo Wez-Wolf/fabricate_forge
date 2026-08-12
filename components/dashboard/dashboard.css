@@ -3,7 +3,7 @@
 .C_main {
     display: flex;
     flex-direction: column;
-    gap: 1rem;           /* section spacing — replaces margin-bottom on children */
+    gap: 1rem;
     padding: 1rem;
     overflow: auto;
     height: 100%;
@@ -114,7 +114,11 @@
 
 /* Section + table */
 .C_section {
-    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-card, var(--bg));
     border: 1px solid var(--border-color);
     border-radius: 8px;
 }

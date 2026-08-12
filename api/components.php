@@ -55,7 +55,7 @@ class components extends Base
         $res = $this->pgCrud->read([
             'table' => 'component',
             'where' => 'id = $1 AND user_id_owner = $2',
-            'params' => [$id, $this->user_id],
+            'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ]);
         $row = $res['data'][0] ?? null;
@@ -91,7 +91,7 @@ class components extends Base
                 'type' => $type,
                 'data' => $data,
                 'quote_id' => $quoteId,
-                'user_id_owner' => $this->user_id,
+                'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
 
@@ -137,7 +137,7 @@ class components extends Base
         $this->pgCrud->execute(
             "UPDATE component SET data = \$2::jsonb, updated_at = NOW()
              WHERE id = \$1 AND user_id_owner = \$3",
-            [$id, json_encode($data), $this->user_id]
+            [$id, json_encode($data), $this->effOwnerId()]
         );
         return $this->handle_get(['id' => $id]);
     }
@@ -152,7 +152,7 @@ class components extends Base
 
         $this->pgCrud->execute(
             "DELETE FROM component WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->user_id]
+            [$id, $this->effOwnerId()]
         );
         return ['success' => true, 'id' => $id];
     }
@@ -169,7 +169,7 @@ class components extends Base
         $res = $this->pgCrud->read([
             'table' => 'component',
             'where' => 'quote_id = $1 AND user_id_owner = $2',
-            'params' => [$quoteId, $this->user_id],
+            'params' => [$quoteId, $this->effOwnerId()],
             'order_fields' => ['created_at ASC'],
         ]);
         return $res['data'] ?? [];

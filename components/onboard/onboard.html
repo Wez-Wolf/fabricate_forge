@@ -1,0 +1,54 @@
+<div class="C_page">
+    <div class="C_card">
+        <div class="C_brand">
+            <forge-svg s_path="factory" class="C_logo" />
+            <span class="C_brand_name">Fabricate</span>
+        </div>
+
+        <div v-if="loading" class="C_center">
+            <forge-loader variant="dots" label="Checking your invite..." />
+        </div>
+
+        <!-- Valid invite: signup form with the code attached -->
+        <template v-else-if="invite && code">
+            <div class="C_invite_head">
+                <span class="C_eyebrow">TEAM INVITE</span>
+                <h1 class="C_title">Join <span class="C_team">{{ invite.name }}</span></h1>
+                <p class="C_sub">
+                    {{ invite.owner_name }} invited you to work together on fabrication
+                    quotes, costing, and materials.
+                </p>
+            </div>
+
+            <div v-if="error" class="C_error">{{ error }}</div>
+
+            <div class="C_form">
+                <label class="C_label">Name <span class="C_opt">(optional)</span></label>
+                <input class="C_input" type="text" v-model="name" placeholder="Your name" />
+
+                <label class="C_label">Email</label>
+                <input class="C_input" type="email" v-model="email" placeholder="your@email.com" />
+
+                <label class="C_label">Password</label>
+                <input class="C_input" type="password" v-model="pass" placeholder="min 6 characters" />
+
+                <forge-button
+                    label="Create Account & Join Team"
+                    @click="doSignup"
+                    :disabled="saving"
+                />
+            </div>
+
+            <p class="C_foot">Already have an account? <span class="C_link" @click="goLogin">Sign in</span></p>
+        </template>
+
+        <!-- Invalid/expired code -->
+        <template v-else>
+            <h1 class="C_title">This invite link is no longer valid</h1>
+            <p class="C_sub">Ask the workspace owner to send you a fresh invite link.</p>
+            <div class="C_form">
+                <forge-button label="Sign In" @click="goLogin" />
+            </div>
+        </template>
+    </div>
+</div>

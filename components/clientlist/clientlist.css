@@ -1,10 +1,11 @@
 /* components/client-list — full client list (POPUP picker + add) */
-
 .C_main {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    min-width: 22rem;
+    gap: 1rem;
+    padding: 1rem;
+    overflow: auto;
+    height: 100%;
 }
 
 .C_toolbar {

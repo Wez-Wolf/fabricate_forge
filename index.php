@@ -16,6 +16,15 @@
 </head>
 <body>
     <div id="main" start_comp="nav" default_tab="dashboard"></div>
+    <script>
+      // Capture ?invite=CODE from a shared invite link BEFORE the SPA router
+      // navigates (which drops the query string). Stashed in a cookie so the
+      // signup/join flow can consume it server-side.
+      (function () {
+        var m = location.search.match(/[?&]invite=([A-Za-z0-9]+)/);
+        if (m) document.cookie = 'fab_invite=' + m[1] + '; path=/; max-age=604800';
+      })();
+    </script>
     <script defer src="./lib/vue.php"></script>
     <script defer src="./lib/init.php?v=<?= filemtime(__DIR__ . '/lib/init.php') ?>"></script>
     <script>

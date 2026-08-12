@@ -71,7 +71,7 @@ function materialTypeToCategory($t) {
 
 $inserted = 0; $updated = 0; $skipped = 0;
 
-foreach (['materials', 'fasteners', 'fittings'] as $file) {
+foreach (['materials', 'fasteners', 'fittings', 'pipes', 'flanges'] as $file) {
     $path = __DIR__ . '/../seed-data/' . $file . '.json';
     if (!file_exists($path)) { fwrite(STDERR, "missing $path\n"); continue; }
     $rows = json_decode(file_get_contents($path), true);
@@ -85,6 +85,7 @@ foreach (['materials', 'fasteners', 'fittings'] as $file) {
         $libCat = profileToCategory($profile ?: $m['type'] ?? ($file === 'fasteners' ? 'fastener' : ''));
         if ($file === 'fasteners' || $libCat === 'fastener') $libCat = 'fastener';
         if ($file === 'fittings') $libCat = 'fitting';
+        if ($file === 'flanges') $libCat = 'flange';
 
         $aliases = [];
         foreach (['grade', 'profile'] as $k) {
@@ -95,7 +96,21 @@ foreach (['materials', 'fasteners', 'fittings'] as $file) {
         foreach (['type', 'dimensions', 'thread', 'finish', 'standard', 'supplier', 'diameter', 'currency', 'available'] as $k) {
             if (isset($m[$k])) $data->{$k} = $m[$k];
         }
+        // Pass through a full data payload (e.g. the master fittings table:
+        // massKg, endNb, od, wt, dims, areas, weld data, status, description).
+        if (isset($m['data']) && is_array($m['data'])) {
+            foreach ($m['data'] as $k => $v) $data->{$k} = $v;
+        }
         $dataJson = json_encode($data) ?: '{}';
+
+        // Pipe / fitting / flange attribute columns — first element wins for
+        // multi-end fittings (od[]/wt[] are per-end arrays in the master table).
+        $d = $m['data'] ?? [];
+        $od = $d['od'] ?? null;
+        $wt = $d['wt'] ?? null;
+        if (is_array($od)) $od = $od[0] ?? null;
+        if (is_array($wt)) $wt = $wt[0] ?? null;
+        if ($libCat === 'flange' && isset($d['pipeOd'])) $od = $d['pipeOd'];
 
         $row = [
             'name' => $name,
@@ -109,6 +124,15 @@ foreach (['materials', 'fasteners', 'fittings'] as $file) {
             'mass_per_area' => $m['massPerArea'] ?? null,
             'unit_cost' => $m['unitCost'] ?? 0,
             'library_category' => $libCat,
+            // Pipe/fitting/flange attribute columns
+            'od' => $od,
+            'wt' => $wt,
+            'schedule' => $d['schedule'] ?? $d['series'] ?? null,
+            'nb' => $d['nb'] ?? $d['dn'] ?? (isset($d['endNb'][0]) ? $d['endNb'][0] : null),
+            'nps' => $d['nps'] ?? null,
+            'mass_kg' => $d['massKg'] ?? $m['massKg'] ?? null,
+            'paint_area_per_m' => $d['paintAreaPerM'] ?? null,
+            'ext_area' => $d['extArea'] ?? $d['paintArea'] ?? null,
             'aliases' => $aliases,
             'data' => $dataJson,
             'user_id_owner' => null,

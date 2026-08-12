@@ -22,6 +22,7 @@ var comp = {
                 { label: 'Customer', type: 'function', func: function (row) { return esc(row[1]); } },
                 { label: 'Status',  type: 'function', func: function (row) { return '<span class="status-pill ' + (row[2] || 'draft') + '">' + (row[2] || 'draft') + '</span>'; } },
                 { label: 'Total',   type: 'function', func: function (row) { return '<span class="num">' + esc(row[3]) + '</span>'; }, col_cls: 'C_right' },
+                { label: '',        type: 'svg', path: 'trash', cls: 'C_row_trash', title: 'Delete quote' },
                 { label: '',        type: 'svg', path: 'arrow_right', cls: 'C_row_arrow' },
             ],
         };
@@ -107,9 +108,33 @@ var comp = {
         onSelect(row) {
             if (row && row[4]) ROUTER.navigate('/nav/quotes/' + row[4]);
         },
-        // forge-list svg click (arrow) — open the quote
+        // forge-list svg click — index 4 = trash (delete), index 5 = open
         onSvg(ev) {
-            if (ev && ev.row && ev.row[4]) ROUTER.navigate('/nav/quotes/' + ev.row[4]);
+            if (!ev || !ev.row) return;
+            if (ev.field === 4) {
+                this.removeQuote(ev.row);
+                return;
+            }
+            if (ev.row[4]) ROUTER.navigate('/nav/quotes/' + ev.row[4]);
+        },
+        removeQuote(row) {
+            var self = this;
+            var name = row[0] || 'This quote';
+            POPUP.confirm('Delete Quote', 'Delete "' + name + '"?\nThe quote and all its items are removed permanently.', function () {
+                self.doRemoveQuote(row);
+            });
+        },
+        async doRemoveQuote(row) {
+            try {
+                await WEB.api('./api/quotes.php', {
+                    action: 'delete',
+                    input: { id: row[4] }
+                });
+                TOAST.show('Quote deleted', 'success');
+                this.loadQuotes();
+            } catch (e) {
+                TOAST.show(e.message || 'Failed to delete quote', 'error');
+            }
         },
         onSearch(val) {
             this.search = val || '';

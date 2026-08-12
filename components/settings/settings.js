@@ -25,10 +25,13 @@ var comp = {
                 'drilling', 'grinding', 'bending', 'assembly',
             ],
             currencies: ['USD', 'EUR', 'GBP', 'ZAR', 'CAD', 'AUD'],
+            // team membership (management lives in Admin)
+            myTeam: null,
         };
     },
     created() {
         this.load();
+        this.loadTeam();
     },
     computed: {
         prefsFields() {
@@ -129,6 +132,17 @@ var comp = {
                 this.error = e.message || 'Failed to save';
             } finally {
                 this.saving = false;
+            }
+        },
+        fmtDate(d) { return d ? String(d).slice(0, 10) : ''; },
+        async loadTeam() {
+            try {
+                var self = this;
+                var t = await WEB.api('./api/team.php', { action: 'my_team', input: {} });
+                var td = (t && t.data) || t || {};
+                this.myTeam = { team: td.team || null };
+            } catch (e) {
+                this.myTeam = { team: null };
             }
         },
     },

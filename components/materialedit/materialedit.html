@@ -1,0 +1,115 @@
+<div class="C_main">
+    <!-- ── Basic specs ── -->
+    <div class="C_section_label">Specs</div>
+    <div class="C_field">
+        <label class="C_label">Material Name <span class="C_req">*</span></label>
+        <forge-input bare :value="form.name" placeholder="e.g. S235JR Plate 10mm" @input="form.name = $event" />
+    </div>
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Grade</label>
+            <forge-input bare :value="form.grade" placeholder="e.g. S235JR / A106B / 304" @input="form.grade = $event" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Profile</label>
+            <forge-input bare :value="form.profile" placeholder="Plate, Pipe, Angle, Bolt..." @input="form.profile = $event" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Library Category</label>
+            <select v-model="form.library_category" class="C_input" @change="onCategoryChange">
+                <option value="material">Material</option>
+                <option value="fastener">Fastener</option>
+                <option value="fitting">Fitting</option>
+                <option value="flange">Flange</option>
+            </select>
+        </div>
+    </div>
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Material Type</label>
+            <select v-model="form.material_type" class="C_input">
+                <option v-for="t in materialTypes" :key="t" :value="t">{{ t }}</option>
+            </select>
+        </div>
+        <div class="C_field">
+            <label class="C_label">Category</label>
+            <select v-model="form.category" class="C_input">
+                <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
+            </select>
+        </div>
+        <div class="C_field">
+            <label class="C_label">Density (kg/m³)</label>
+            <forge-input bare :field="{ type: 'number' }" :value="form.density" @input="form.density = $event" />
+        </div>
+    </div>
+
+    <!-- ── Physical ── -->
+    <div class="C_section_label">Physical</div>
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Thickness (mm)</label>
+            <forge-input bare :field="{ type: 'number', step: '0.1' }" :value="form.thickness" @input="form.thickness = $event" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Mass / m (kg/m)</label>
+            <forge-input bare :field="{ type: 'number', step: '0.01' }" :value="form.mass_per_meter" @input="form.mass_per_meter = $event" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Mass / area (kg/m²)</label>
+            <forge-input bare :field="{ type: 'number', step: '0.01' }" :value="form.mass_per_area" @input="form.mass_per_area = $event" />
+        </div>
+    </div>
+    <p class="C_hint">Estimated mass: <strong>{{ massPreview }}</strong> <template v-if="massPreview !== '—'">(per unit — drives costing & take-off)</template></p>
+
+    <!-- ── Kind variables: pipe ── -->
+    <template v-if="form.library_category === 'material' && isPipeProfile">
+        <div class="C_section_label">Pipe Variables</div>
+        <div class="C_field_row">
+            <div class="C_field"><label class="C_label">DN (nominal)</label><forge-input bare :field="{ type: 'number' }" :value="form.dn" @input="form.dn = $event" /></div>
+            <div class="C_field"><label class="C_label">OD (mm)</label><forge-input bare :field="{ type: 'number', step: '0.1' }" :value="form.od" @input="form.od = $event" /></div>
+            <div class="C_field"><label class="C_label">WT (mm)</label><forge-input bare :field="{ type: 'number', step: '0.1' }" :value="form.wt" @input="form.wt = $event" /></div>
+        </div>
+        <div class="C_field_row">
+            <div class="C_field"><label class="C_label">Schedule</label><forge-input bare :value="form.schedule" placeholder="#40 / STD / XS" @input="form.schedule = $event" /></div>
+            <div class="C_field"><label class="C_label">NPS (inch)</label><forge-input bare :value="form.nps" @input="form.nps = $event" /></div>
+            <div class="C_field"><label class="C_label">Paint area (m²/m)</label><forge-input bare :field="{ type: 'number', step: '0.001' }" :value="form.paint_area_per_m" @input="form.paint_area_per_m = $event" /></div>
+        </div>
+    </template>
+
+    <!-- ── Kind variables: fitting / flange ── -->
+    <template v-if="form.library_category === 'fitting' || form.library_category === 'flange'">
+        <div class="C_section_label">{{ form.library_category === 'flange' ? 'Flange' : 'Fitting' }} Variables</div>
+        <div class="C_field_row">
+            <div class="C_field"><label class="C_label">DN (nominal)</label><forge-input bare :field="{ type: 'number' }" :value="form.dn" @input="form.dn = $event" /></div>
+            <div class="C_field"><label class="C_label">Type</label><forge-input bare :value="form.type" placeholder="WN / SO / SW / BLIND / Elbow / Tee..." @input="form.type = $event" /></div>
+            <div class="C_field"><label class="C_label">Mass / item (kg)</label><forge-input bare :field="{ type: 'number', step: '0.01' }" :value="form.mass_kg" @input="form.mass_kg = $event" /></div>
+        </div>
+        <div class="C_field_row">
+            <div class="C_field"><label class="C_label">Rating / Series</label><forge-input bare :value="form.rating" placeholder="150 lb / #40 / B16.9" @input="form.rating = $event" /></div>
+            <div class="C_field" v-if="form.library_category === 'flange'"><label class="C_label">Pipe OD fitted (mm)</label><forge-input bare :field="{ type: 'number', step: '0.1' }" :value="form.pipeOd" @input="form.pipeOd = $event" /></div>
+            <div class="C_field"><label class="C_label">Paint area (m²)</label><forge-input bare :field="{ type: 'number', step: '0.001' }" :value="form.ext_area" @input="form.ext_area = $event" /></div>
+        </div>
+    </template>
+
+    <!-- ── Pricing ── -->
+    <div class="C_section_label">Pricing</div>
+    <div class="C_field_row">
+        <div class="C_field">
+            <label class="C_label">Unit Cost (buy price)</label>
+            <forge-input bare :field="{ type: 'number', step: '0.01' }" :value="form.unit_cost" @input="form.unit_cost = $event" />
+        </div>
+        <div class="C_field">
+            <label class="C_label">Supplier</label>
+            <select v-model="form.supplier_id" class="C_input">
+                <option value="">— No supplier —</option>
+                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.company_name }}</option>
+            </select>
+        </div>
+    </div>
+    <p v-if="form.price_updated_at" class="C_hint">Price last updated: {{ String(form.price_updated_at).slice(0, 10) }}</p>
+
+    <div class="C_actions">
+        <forge-button :label="isNew ? 'Add Material' : 'Save Material'" @click="submit" />
+        <span class="C_cancel" @click="cancel">Cancel</span>
+    </div>
+</div>

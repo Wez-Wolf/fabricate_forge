@@ -3,9 +3,10 @@
 .C_main {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    min-width: 24rem;
-    max-width: 32rem;
+    gap: 1rem;
+    padding: 1rem;
+    overflow: auto;
+    height: 100%;
 }
 
 .C_toolbar {
