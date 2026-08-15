@@ -45,9 +45,9 @@ if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']
 }
 
 // ── Forge core JS files (order matters) ──
-readfile($forgeDir . '/js/core/_util.js');  echo PHP_EOL;
-readfile($forgeDir . '/js/core/router.js');  echo PHP_EOL;
-echo "LS.pre = 'fabricate';";  echo PHP_EOL;
+// Forge core JS consolidated into forge/php/core-js.php
+require_once($forgeDir . '/php/core-js.php');
+echo forge_core_js('fabricate');
 
 // Capture the original path BEFORE comp.js's initMain redirects (unconditional).
 // Full path (not just the first segment) so reset-password/<token> survives.
