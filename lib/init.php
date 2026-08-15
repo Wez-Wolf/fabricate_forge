@@ -98,60 +98,14 @@ echo <<<'JS'
 JS;
 echo PHP_EOL;
 
-// ── Session-loss redirect (the robust auth gate) ────────────
-// The classic bug: when the server-side session dies (TTL expiry, admin
-// deleted the auth row, another tab logged out), the NEXT WEB.api call gets a
-// 401 / error_code; forge's WEB.api strips auth_id from localStorage, BUT
-// nothing re-resolves the route — the app stays mounted on the dashboard page
-// now showing load errors. This helper is the single choke point: any auth
-// loss calls it and the SPA lands on the public landing page instead of a
-// broken authed shell. RUNS AFTER MAIN exists (see ordering note at top).
-echo <<<'JS'
-(function(){
-  if (window.gotoLanding) return; // already installed
-  window.gotoLanding = function(){
-    // Already on a public route? Never redirect away from it.
-    var parts = [];
-    try { parts = ROUTER.decodePath(); } catch(e) { parts = []; }
-    var p = parts.filter(function(x){ return x !== 'nav'; });
-    var one = (p.length === 1) ? (p[0] || '') : '';
-    if (p.length >= 2 && p[0] === 'reset-password') return;          // /reset-password/<token>
-    if (one === 'landing' || one === 'login' || one === 'signup' ||
-        one === 'join' || one === 'onboard' || one === 'forgot-password') return;
-    // Navigate + re-dispatch so the landing-first processPath patch mounts landing.
-    try { ROUTER.navigate('/landing'); } catch(e) {}
-    if (MAIN && MAIN.processPath) { try { MAIN.processPath(ROUTER.decodePath()); } catch(e) {} }
-  };
-
-  // MAIN.processClear — the seam forge-style apps define for "clear the app
-  // state" on 401/error_code. Route it through the same landing redirect so
-  // any caller (component, future forge core) gets the robust behaviour.
-  if (typeof MAIN !== 'undefined' && MAIN && !MAIN.processClear) {
-    MAIN.processClear = function(){ window.gotoLanding(); };
-  }
-
-  // Wrap WEB.api: when forge's 401/error_code handling strips auth_id mid-run,
-  // send the user to landing. Deferred a tick so the failed caller's .catch()
-  // finishes first (avoid an error toast fighting the navigation).
-  if (typeof WEB !== 'undefined' && WEB && !WEB.__fab_authWrapped) {
-    WEB.__fab_authWrapped = true;
-    var _api = WEB.api.bind(WEB);
-    WEB.api = async function(path, data){
-      var before = LS.get('auth_id');
-      var r;
-      try { r = await _api(path, data); } catch(e) { r = {}; }
-      var after = LS.get('auth_id');
-      // Had a real session, now stripped by WEB.api (401 / error_code).
-      if (before && before !== '-100' && (!after || after === '-100')) {
-        setTimeout(window.gotoLanding, 0);
-      }
-      return r;
-    };
-  }
-})();
-JS;
+// Session-loss 401 redirect is handled by forge core's WEB.gracefulLogout.
+// Standardized: forge routes unauth users out on 401/error_code. For this
+// landing-first app, point the (configurable) destination at the public /
+// landing page instead of relying on the default /login path. No bespoke
+// WEB.api wrapper / processClear needed anymore.
+echo "window.FORGE_CONFIG = window.FORGE_CONFIG || {};"; echo PHP_EOL;
+echo "window.FORGE_CONFIG.logoutRedirect = '/landing';"; echo PHP_EOL;
 echo PHP_EOL;
-
 // Welcome-first landing: unauth users land on the public /landing page.
 // Patches processPath so single-segment /landing renders the landing comp,
 // and /login /signup /join /onboard /forgot-password still work. Also keeps
