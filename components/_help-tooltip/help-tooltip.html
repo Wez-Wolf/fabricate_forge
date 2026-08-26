@@ -1,0 +1,17 @@
+<div class="C_help_tooltip" :class="position">
+    <button
+        class="C_help_icon"
+        @click.stop="toggleShow"
+        @blur="hide"
+        :title="text"
+        aria-label="Help"
+    >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4M12 8h.01"></path>
+        </svg>
+    </button>
+    <div v-if="show" class="C_help_tooltip_content">
+        {{ text }}
+    </div>
+</div>

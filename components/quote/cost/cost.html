@@ -1,0 +1,98 @@
+<div class="C_cost">
+    <!-- Headline total -->
+    <div class="C_cost_headline">
+        <div>
+            <span class="C_cost_label">Quote Total</span>
+            <span class="C_cost_value num">{{ money(totals.total) }}</span>
+            <span class="C_cost_margin">Margin {{ marginPercent != null ? marginPercent + '%' : '30%' }}</span>
+        </div>
+        <help-tooltip
+            text="Your quote price = material cost + fabrication labor + consumables + margin. Adjust hours in the Process tab to control labor cost."
+            position="left"
+        />
+    </div>
+
+    <!-- Cost breakdown visualization -->
+    <div class="C_cost_breakdown_card">
+        <h3>Cost Breakdown</h3>
+        <div class="C_breakdown_bars">
+            <div class="C_breakdown_row">
+                <span class="C_breakdown_label">Material</span>
+                <div class="C_breakdown_bar_wrap">
+                    <div class="C_breakdown_bar" :style="{ width: (totals.material / totals.total * 100 || 0) + '%', backgroundColor: '#10b981' }"></div>
+                </div>
+                <span class="C_breakdown_value num">{{ money(totals.material) }}</span>
+            </div>
+            <div class="C_breakdown_row">
+                <span class="C_breakdown_label">Process Hours</span>
+                <div class="C_breakdown_bar_wrap">
+                    <div class="C_breakdown_bar" :style="{ width: (totals.processTotal / totals.total * 100 || 0) + '%', backgroundColor: '#f59e0b' }"></div>
+                </div>
+                <span class="C_breakdown_value num">{{ money(totals.processTotal) }}</span>
+            </div>
+            <div class="C_breakdown_row">
+                <span class="C_breakdown_label">On-costs</span>
+                <div class="C_breakdown_bar_wrap">
+                    <div class="C_breakdown_bar" :style="{ width: (onCostsTotal / totals.total * 100 || 0) + '%', backgroundColor: '#06b6d4' }"></div>
+                </div>
+                <span class="C_breakdown_value num">{{ money(onCostsTotal) }}</span>
+            </div>
+            <div class="C_breakdown_row">
+                <span class="C_breakdown_label">Margin</span>
+                <div class="C_breakdown_bar_wrap">
+                    <div class="C_breakdown_bar" :style="{ width: (totals.margin / totals.total * 100 || 0) + '%', backgroundColor: '#8b5cf6' }"></div>
+                </div>
+                <span class="C_breakdown_value num">{{ money(totals.margin) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Breakdown cards -->
+    <div class="C_cost_cards">
+        <div class="C_card"><span class="C_card_label">Material</span><span class="C_card_value num">{{ money(totals.material) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Process</span><span class="C_card_value num">{{ money(totals.processTotal) }}</span></div>
+        <div class="C_card"><span class="C_card_label">On-costs</span><span class="C_card_value num">{{ money(onCostsTotal) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Margin</span><span class="C_card_value num">{{ money(totals.margin) }}</span></div>
+        <div class="C_card C_card_total"><span class="C_card_label">Grand Total</span><span class="C_card_value num">{{ money(totals.total) }}</span></div>
+    </div>
+    <div class="C_cost_cards C_cost_cards_sub">
+        <div class="C_card"><span class="C_card_label">Total Mass</span><span class="C_card_value num">{{ mass(totals.massKg) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Boilermaking</span><span class="C_card_value num">{{ hours(totals.boilerHrs) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Welding</span><span class="C_card_value num">{{ hours(totals.weldHrs) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Machining</span><span class="C_card_value num">{{ hours(totals.machHrs) }}</span></div>
+    </div>
+
+    <!-- On-costs detail -->
+    <div class="C_cost_section">
+        <div class="C_section_label">On-costs</div>
+        <table class="C_cost_table">
+            <tbody>
+                <tr v-for="r in onCostRows" :key="r.label">
+                    <td>{{ r.label }}</td>
+                    <td class="num">{{ money(r.value) }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Per-entity cost breakdown -->
+    <div class="C_cost_section">
+        <div class="C_section_label">Cost by item</div>
+        <div class="C_cost_grid_wrap">
+            <table class="C_cost_table C_cost_items">
+                <thead>
+                    <tr><th>Item</th><th>Type</th><th class="num">Material</th><th class="num">Process</th><th class="num">Total</th></tr>
+                </thead>
+                <tbody>
+                    <tr v-for="r in rows" :key="r.id">
+                        <td class="C_item_name">{{ r.name }}</td>
+                        <td>{{ r.type }}</td>
+                        <td class="num">{{ money(r.material) }}</td>
+                        <td class="num">{{ money(r.process) }}</td>
+                        <td class="num">{{ money(r.total) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -9,6 +9,9 @@
     </div>
 
     <template v-else-if="quote">
+        <!-- Breadcrumb trail -->
+        <quote-breadcrumb :quote="quote" :quote_id="quoteId" :active_tab="activeTab" :tabs="tabs" />
+
         <!-- Header -->
         <div class="C_header_row">
             <div>
@@ -24,10 +27,6 @@
                 </div>
             </div>
             <div class="C_actions">
-                <forge-button label="Import BOM" @click="openBomImport" />
-                <forge-button label="Add Items" @click="openBatchAdd" />
-                <forge-button label="Add Item" @click="openAddEntity" />
-                <forge-button label="From Prefab" @click="openPrefabPicker" />
                 <forge-button label="Export PDF" @click="exportPdf" />
             </div>
         </div>
@@ -43,319 +42,29 @@
         <!-- Tabs -->
         <forge-tabs :tabs="tabs" :value="activeTab" @input="onTabSelect" />
 
-        <!-- Overview tab: cost breakdown -->
-        <div v-if="activeTab === 'overview'" class="C_tab_content">
-            <div class="C_summary_cards">
-                <div v-for="c in overviewCards" :key="c.label" class="C_card" :class="c.cls">
-                    <span class="C_card_label">{{ c.label }}</span>
-                    <span class="C_card_value num">{{ c.value }}</span>
-                </div>
-            </div>
+        <!-- The shell loaded the quote + material library ONCE and hands
+             the shared state down as props; each tab keeps its own domain fetch
+             (tree / takeoff / compat) and owns its own actions.
 
-            <div class="C_section">
-                <div class="C_section_header"><h2>Cost Breakdown</h2></div>
-                <div class="C_table_wrap">
-                <table class="C_table C_cost_table">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Type</th>
-                            <th>Qty</th>
-                            <th v-for="c in costColumns" :key="c.key" class="C_right">{{ c.label }}</th>
-                            <th class="C_right">On-Costs</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="e in entities" :key="e.id">
-                            <td class="C_strong"><span class="C_link" @click="editEntity(e)">{{ e.name }}</span></td>
-                            <td>{{ e.type }}</td>
-                            <td>{{ e.quantity }}</td>
-                            <td v-for="c in costColumns" :key="c.key" class="C_right num">{{ fmtCell(e.cost[c.key], c.type) }}</td>
-                            <td class="C_right"><button class="C_link" @click="openCostEditor(e)">on-costs</button></td>
-                            <td class="C_right kind-badge" title="Material kind"
-                               v-if="e.cost && e.cost.kind"
-                               :style="{background: kindBgColor(e.cost.kind), color: kindTextColor(e.cost.kind)}">
-                                {{ kindAbbr(e.cost.kind) }}
-                            </td>
-                        </tr>
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="3" class="C_right C_strong">Totals</td>
-                            <td v-for="c in costColumns" :key="c.key" class="C_right num C_strong">{{ fmtCell(totals[c.key], c.type) }}</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-                </div>
-                <div v-if="!entities.length" class="C_empty">
-                    <p>No items on this quote yet.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Entities tab: add/edit/delete all quote items -->
-        <div v-if="activeTab === 'entities'" class="C_tab_content">
-            <div class="C_section">
-                <div class="C_section_header C_section_header_actions">
-                    <h2>Entities</h2>
-                    <div class="C_actions">
-                        <forge-button label="Add Item" @click="openAddEntity" />
-                        <forge-button label="Add Items" @click="openBatchAdd" />
-                        <forge-button label="From Prefab" @click="openPrefabPicker" />
-                    </div>
-                </div>
-                <div v-if="!entities.length" class="C_empty">
-                    <p>No items on this quote yet.</p>
-                    <p class="C_hint">Add a single item, paste a batch, or pull in a prefab.</p>
-                    <forge-button label="Add Item" @click="openAddEntity" />
-                </div>
-                <div v-else class="C_table_wrap">
-                    <table class="C_table C_entities_table">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Type</th>
-                                <th>Qty</th>
-                                <th>Material</th>
-                                <th class="C_right">Unit Cost</th>
-                                <th class="C_right">Total</th>
-                                <th class="C_right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="e in entities" :key="e.id">
-                                <td class="C_strong">{{ e.name }}</td>
-                                <td>{{ e.type }}</td>
-                                <td>{{ e.quantity }}</td>
-                                <td>{{ materialName(e) }}</td>
-                                <td class="C_right num">{{ fmtMoney(e.cost.unitCost) }}</td>
-                                <td class="C_right num">{{ fmtMoney(e.cost.total) }}</td>
-                                <td class="C_right">
-                                    <button class="C_link" @click="editEntity(e)">edit</button>
-                                    <button class="C_link C_link_danger" @click="deleteEntity(e)">delete</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- BOM tab: entity tree summary -->
-        <div v-if="activeTab === 'bom'" class="C_tab_content">
-            <div class="C_section">
-                <div class="C_section_header"><h2>Bill of Materials</h2></div>
-                <table class="C_table">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Type</th>
-                            <th>Qty</th>
-                            <th class="C_right">Unit Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="e in entities" :key="e.id">
-                            <td class="C_strong"><span class="C_link" @click="editEntity(e)">{{ e.name }}</span></td>
-                            <td>{{ e.type }}</td>
-                            <td>{{ e.quantity }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.unitCost) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Materials tab: supplier take-off (flat consolidated material list) -->
-        <div v-if="activeTab === 'materials'" class="C_tab_content">
-            <div class="C_summary_cards">
-                <div class="C_card">
-                    <span class="C_card_label">Distinct Materials</span>
-                    <span class="C_card_value num">{{ takeoffTotals.distinct || 0 }}</span>
-                </div>
-                <div class="C_card">
-                    <span class="C_card_label">Total Mass</span>
-                    <span class="C_card_value num">{{ Number(takeoffTotals.total_mass_kg || 0).toFixed(1) }} kg</span>
-                </div>
-                <div class="C_card">
-                    <span class="C_card_label">Total Material Cost</span>
-                    <span class="C_card_value num">{{ fmtMoney(takeoffTotals.total_cost) }}</span>
-                </div>
-            </div>
-
-            <div class="C_section">
-                <div class="C_section_header C_section_header_actions">
-                    <h2>Supplier Material Take-off</h2>
-                    <div class="C_actions">
-                        <forge-button label="Send to Suppliers" @click="openSplitTakeoff" />
-                        <forge-button label="Export CSV" cls="ghost" @click="exportTakeoffCsv" />
-                        <forge-button label="Export PDF" cls="ghost" @click="exportTakeoffPdf" />
-                    </div>
-                </div>
-                <p class="C_hint">Consolidated material quantities (× all assembly quantities) — send to suppliers for costing.</p>
-                <div v-if="takeoffLoading" class="C_loading">
-                    <forge-loader variant="dots" label="Building take-off..." />
-                </div>
-                <div v-else-if="!takeoff.length" class="C_empty">
-                    <p>No materials found. Add items with materials to this quote first.</p>
-                </div>
-                <div v-else class="C_table_wrap">
-                    <!-- Grouped by supplier group: each section is a category a
-                         supplier can quote independently (fasteners, flanges, ...) -->
-                    <div v-for="(grp, gi) in takeoffGroups" :key="gi" class="C_takeoff_group">
-                        <div class="C_takeoff_group_header">
-                            <span class="C_takeoff_group_name">{{ grp.name }}</span>
-                            <span class="C_takeoff_group_meta">
-                                {{ grp.materials.length }} item{{ grp.materials.length === 1 ? '' : 's' }}
-                                <template v-if="grp.totals.mass"> · {{ Number(grp.totals.mass).toFixed(1) }} kg</template>
-                                <template v-if="grp.totals.m"> · {{ Number(grp.totals.m).toFixed(1) }} m</template>
-                                <template v-if="grp.totals.ea"> · {{ grp.totals.ea }} ea</template>
-                                <span class="C_takeoff_group_cost num">{{ fmtMoney(grp.totals.cost) }}</span>
-                            </span>
-                        </div>
-                        <table class="C_table C_takeoff_table">
-                            <tbody>
-                                <tr v-for="(m, i) in grp.materials" :key="i">
-                                    <td class="C_strong">{{ m.name }}</td>
-                                    <td>{{ m.grade }}</td>
-                                    <td>{{ m.dims }}</td>
-                                    <td>{{ m.unit }}</td>
-                                    <td class="C_right num">{{ m.qty }}</td>
-                                    <td class="C_right num">{{ fmtMoney(m.unit_cost) }}</td>
-                                    <td class="C_right num">{{ fmtMoney(m.extended_cost) }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="C_takeoff_total_row">
-                        <span class="C_strong">Grand Total ({{ Number(takeoffTotals.total_mass_kg || 0).toFixed(1) }} kg)</span>
-                        <span class="C_takeoff_total_cost num">{{ fmtMoney(takeoffTotals.total_cost) }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tree tab -->
-        <div v-if="activeTab === 'tree'" class="C_tab_content">
-            <div class="C_section">
-                <div class="C_section_header">
-                    <h2>Entity Hierarchy Tree</h2>
-                    <span class="C_hint">Click an item to edit — click the arrow to expand/collapse.</span>
-                </div>
-                <!-- tree control bar -->
-                <div v-if="treeLoading" class="C_loading">
-                    <forge-loader variant="dots" label="Loading tree..." />
-                </div>
-                <template v-else>
-                    <div v-if="treeData.length > 0" class="C_toolbar">
-                        <forge-button @click="collapseAll" cls="ghost">Collapse All</forge-button>
-                        <forge-button @click="expandAll" cls="ghost">Expand All</forge-button>
-                        <forge-input v-model="treeSearch" cls="C_input_sm" placeholder="Search tree..." @input="filterTree" :icon="'search'" />
-                        <span v-if="treeSearch.length > 0" class="C_hint">Esc to clear | ⏎ Edit</span>
-                    </div>
-                    <div v-if="treeData.length > 0" class="C_tree">
-                        <tree-node
-                            v-for="n in filteredTreeData"
-                            :key="n.id"
-                            :node="n"
-                            :depth="0"
-                            :open="treeOpen"
-                            :fmt="fmtMoney"
-                            :abbr="abbr"
-                            :cost-of="treeCost"
-                            :mass-of="treeMass"
-                            :material-of="materialOf"
-                            :process-of="processOf"
-                            :treeSearch="treeSearch"
-                            :warn-of="nodeWarnings"
-                            :kind-of="kindOf"
-                            @edit="editEntity"
-                            @toggle="toggleTree"
-                        />
-                    </div>
-                    <div v-else class="C_empty">
-                        <p>No entity hierarchy yet.</p>
-                        <p class="C_hint">Add items or import a BOM to build the tree.</p>
-                        <forge-button label="Add Item" @click="openAddEntity" />
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <!-- Checks tab: pipe ↔ flange compatibility -->
-        <div v-if="activeTab === 'checks'" class="C_tab_content">
-            <div class="C_section">
-                <div class="C_section_header"><h2>Compatibility Checks</h2></div>
-                <p class="C_hint">Verifies pipes against the flanges/fittings in their assembly (size match) and suggests flanges for pipes that need them.</p>
-                <div v-if="compatLoading" class="C_loading">
-                    <forge-loader variant="dots" label="Checking compatibility..." />
-                </div>
-                <div v-else-if="!compatIssues.length && !compatSuggestions.length" class="C_compat_ok">
-                    <span class="C_compat_ok_icon">✓</span>
-                    <span>All pipes are compatible — no mismatches, no missing flanges.</span>
-                </div>
-
-                <template v-else>
-                    <div v-if="compatIssues.length" class="C_compat_section">
-                        <h3 class="C_compat_heading C_compat_bad">{{ compatIssues.length }} size mismatch{{ compatIssues.length === 1 ? '' : 'es' }}</h3>
-                        <div v-for="(i, k) in compatIssues" :key="'i' + k" class="C_compat_card C_compat_card_bad">
-                            <span class="C_compat_icon">⚠</span>
-                            <span class="C_compat_msg">{{ i.message }}</span>
-                        </div>
-                    </div>
-                    <div v-if="compatSuggestions.length" class="C_compat_section">
-                        <h3 class="C_compat_heading C_compat_hint">Suggested flanges (pipes without one)</h3>
-                        <div v-for="(s, k) in compatSuggestions" :key="'s' + k" class="C_compat_card C_compat_card_hint">
-                            <div class="C_compat_msg">{{ s.message }}</div>
-                            <div class="C_compat_flanges">
-                                <span
-                                    v-for="f in s.flanges"
-                                    :key="f.id"
-                                    class="C_compat_flange"
-                                    @click="addSuggestedFlange(s, f)"
-                                >+ {{ f.name }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <!-- Process tab -->
-        <div v-if="activeTab === 'process'" class="C_tab_content">
-            <div class="C_summary_cards">
-                <div class="C_card">
-                    <span class="C_card_label">Total Process Hours</span>
-                    <span class="C_card_value num">{{ processHours }}</span>
-                </div>
-                <div class="C_card">
-                    <span class="C_card_label">Process Cost</span>
-                    <span class="C_card_value num">{{ fmtMoney(processTotal) }}</span>
-                </div>
-            </div>
-            <div class="C_section">
-                <div class="C_section_header"><h2>Per-Entity Process</h2></div>
-                <table class="C_table">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th class="C_right">Welding</th>
-                            <th class="C_right">Machining</th>
-                            <th class="C_right">Process Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="e in entities" :key="e.id">
-                            <td class="C_strong">{{ e.name }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.welding) }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.machining) }}</td>
-                            <td class="C_right num">{{ fmtMoney(e.cost.processTotal) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+             Tabs use v-show (not v-if) so switching preserves each tab's in-memory
+             state (scroll, edit inputs, expanded tree, RFQ review grid) instead of
+             destroying + refetching on every switch. Lazy-load still mounts each
+             tab component on first visit; v-show only hides it afterward. -->
+        <quote-entities v-show="activeTab === 'entities'"
+            :quote-id="quoteId" :quote="quote" :entities="entities" :token="refreshToken"
+            @changed="load" @dirty="markDirty" />
+        <quote-materials v-show="activeTab === 'materials'"
+            :quote-id="quoteId" :quote="quote" :entities="entities"
+            @changed="load" @dirty="markDirty" />
+        <quote-process v-show="activeTab === 'process'"
+            :entities="entities" :costs="costs" :quote="quote"
+            @changed="load" @dirty="markDirty" />
+        <quote-cost v-show="activeTab === 'cost'"
+            :quote-id="quoteId" :quote="quote" :entities="entities"
+            :costs="costs" :totals="totals" :margin-percent="marginPercent"
+            @changed="load" />
+        <quote-docs v-show="activeTab === 'docs'"
+            :quote-id="quoteId" @changed="load" @dirty="markDirty" />
     </template>
 
     <div v-else class="C_error">

@@ -1,0 +1,39 @@
+.C_breadcrumb {
+    padding: 0.75rem 0;
+    font-size: 0.875rem;
+}
+
+.C_breadcrumb_list {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.C_breadcrumb_item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.C_breadcrumb_link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.C_breadcrumb_link:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.C_breadcrumb_current {
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
+.C_breadcrumb_sep {
+    color: var(--border);
+    margin: 0 0.25rem;
+}

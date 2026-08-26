@@ -1,0 +1,11 @@
+<nav class="C_breadcrumb" role="navigation" aria-label="Breadcrumb">
+    <ol class="C_breadcrumb_list">
+        <li v-for="(item, i) in breadcrumbs" :key="i" class="C_breadcrumb_item">
+            <a v-if="!item.current" :href="item.href" @click.prevent="navigate(item.href)" class="C_breadcrumb_link">
+                {{ item.label }}
+            </a>
+            <span v-else class="C_breadcrumb_current">{{ item.label }}</span>
+            <span v-if="i < breadcrumbs.length - 1" class="C_breadcrumb_sep">/</span>
+        </li>
+    </ol>
+</nav>
