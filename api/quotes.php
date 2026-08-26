@@ -10,13 +10,18 @@
  *   - status lifecycle with VALID_TRANSITIONS enforcement + history
  *   - entity attachment (quote_id on member entities)
  *   - PDF export (server-generated HTML)
- *   - total persistence via systems.load_quote
+ *   - total persistence via systems.recalculate_entity
+ *
+ * Reads compose (never write, never recalc): overview (entity + persisted
+ * cost component) + entities list + components get_by_quote. The cost system
+ * runs only via recalculate_entity, on mutation.
  */
 namespace api;
 
 include_once(__DIR__ . "/_base.php");
 include_once(__DIR__ . "/entities.php");
 include_once(__DIR__ . "/systems.php");
+include_once(__DIR__ . "/cost.php");
 
 class quotes extends Base
 {
@@ -107,7 +112,8 @@ class quotes extends Base
     }
 
     /**
-     * Get a quote with its entities + cost (delegates to systems.load_quote).
+     * Get an entity summary (delegates to systems.overview — pure read: the
+     * entity + its persisted cost component; never recalculates, never writes).
      */
     public function handle_get($input = [])
     {
@@ -115,7 +121,7 @@ class quotes extends Base
         if (!$id) return ['error' => 'quote_id is required.'];
         $systems = new \api\systems();
         $systems->user_id = $this->effOwnerId();
-        return $systems->handle_load_quote(['quote_id' => $id]);
+        return $systems->handle_overview(['entity_id' => $id]);
     }
 
     /**
@@ -275,38 +281,9 @@ class quotes extends Base
     }
 
     /**
-     * Attach an entity to a quote (sets quote_id + recalculates total).
-     * Input: { quote_id, entity_id } — entity must exist and be owned.
-     */
-    public function handle_add_entity($input = [])
-    {
-        $quoteId = \getVal($input, 'quote_id');
-        $entityId = \getVal($input, 'entity_id');
-        if (!$quoteId || !$entityId) return ['error' => 'quote_id and entity_id are required.'];
-
-        $quote = $this->getEntity($quoteId);
-        if (!$quote || $quote['type'] !== 'quote') {
-            return ['error' => 'Quote not found.', 'error_code' => 404];
-        }
-        $entity = $this->getEntity($entityId);
-        if (!$entity) return ['error' => 'Entity not found.', 'error_code' => 404];
-
-        $this->pgCrud->execute(
-            "UPDATE entity SET quote_id = \$1, updated_at = NOW()
-             WHERE id = \$2 AND user_id_owner = \$3",
-            [$quoteId, $entityId, $this->effOwnerId()]
-        );
-
-        // Recalculate the quote total (ECS flow)
-        $systems = new \api\systems();
-        $systems->user_id = $this->effOwnerId();
-        return $systems->handle_load_quote(['quote_id' => $quoteId]);
-    }
-
-    /**
      * Batch-add line items to a quote in one call (N entities + a single
-     * recalc via load_quote — the batch cost pass is already single-roundtrip).
-     * Input: { quote_id, items: [{ name, type?, quantity?, description?, data? }] }
+     * recalc via recalculate_entity — the batch cost pass is already single-roundtrip).
+     * Input: { quote_id, items: [{ name, type?, description?, data? }] }
      */
     public function handle_add_items($input = [])
     {
@@ -333,22 +310,33 @@ class quotes extends Base
                 'type' => $type,
                 'name' => $name,
                 'description' => \getVal($it, 'description', ''),
-                'quote_id' => $quoteId,
-                'quantity' => max(1, (int)\getVal($it, 'quantity', 1)),
+                'entity_id' => $quoteId,
+                // D5: entities are singular; quantity belongs on the link.
+                'quantity' => 1,
                 'user_id_owner' => $this->effOwnerId(),
             ];
             $extra = \getVal($it, 'data', []);
             if (is_array($extra) && !empty($extra)) $row['data'] = $extra;
 
             $res = $this->pgCrud->save(['table' => 'entity', 'data' => $row]);
-            if (empty($res['error'])) $created[] = $res['data']['id'] ?? null;
+            if (empty($res['error'])) {
+                $created[] = $res['data']['id'] ?? null;
+                // G8: membership edge from quote root (carries the qty)
+                $this->pgCrud->save(['table' => 'link', 'data' => [
+                    'from_id' => $quoteId,
+                    'to_id' => $res['data']['id'],
+                    'type' => 'contains',
+                    'quantity' => 1,
+                    'user_id_owner' => $this->effOwnerId(),
+                ]]);
+            }
         }
         if (!$created) return ['error' => 'No valid items provided.'];
 
-        // Single recalc + return the fresh quote (batch cost = one pass)
+        // Single recalc + return the fresh summary (batch cost = one pass)
         $systems = new \api\systems();
         $systems->user_id = $this->effOwnerId();
-        $loaded = $systems->handle_load_quote(['quote_id' => $quoteId]);
+        $loaded = $systems->handle_recalculate_entity(['entity_id' => $quoteId]);
         if (!isset($loaded['error'])) $loaded['items_created'] = count($created);
         return $loaded;
     }
@@ -370,7 +358,7 @@ class quotes extends Base
 
         $systems = new \api\systems();
         $systems->user_id = $this->effOwnerId();
-        return $systems->handle_load_quote(['quote_id' => $quoteId]);
+        return $systems->handle_recalculate_entity(['entity_id' => $quoteId]);
     }
 
     /**
@@ -383,11 +371,30 @@ class quotes extends Base
         $id = \getVal($input, 'quote_id') ?: \getVal($input, 'id');
         if (!$id) return ['error' => 'quote_id is required.'];
 
-        $loaded = $this->handle_get(['quote_id' => $id]);
+        // Compose reads (ECS): overview (quote + totals) + entity rows +
+        // all components — attach each entity's persisted cost client-side.
+        $systems = new \api\systems();
+        $systems->user_id = $this->effOwnerId();
+        $loaded = $systems->handle_overview(['quote_id' => $id]);
         if (isset($loaded['error'])) return $loaded;
 
+        $entitiesApi = new \api\entities();
+        $entitiesApi->user_id = $this->effOwnerId();
+        $entitiesRes = $entitiesApi->handle_list(['quote_id' => $id, 'limit' => 200]);
+        if (isset($entitiesRes['error'])) return $entitiesRes;
+        $entities = $entitiesRes;
+
+        // Cost projection via the cost.php seam (cost ADR — callers don't
+        // filter cost components themselves).
+        $costApi = new \api\cost();
+        $costApi->user_id = $this->effOwnerId();
+        $costByEntity = $costApi->get_costs_by_entities(array_column($entities, 'id'));
+        foreach ($entities as &$e) {
+            $e['cost'] = $costByEntity[$e['id']] ?? [];
+        }
+        unset($e);
+
         $quote = $loaded['quote'] ?? [];
-        $entities = $loaded['entities'] ?? [];
         $data = $quote['data'] ?? [];
         $status = $data['status'] ?? 'draft';
         $currency = $data['currency'] ?? 'USD';
@@ -395,8 +402,11 @@ class quotes extends Base
         $rows = '';
         foreach ($entities as $e) {
             $c = $e['cost'] ?? [];
+            $label = $e['name'] ?? '';
+            $desc = $e['description'] ?? '';
+            if ($desc && $desc !== $label) $label .= ' — ' . $desc;
             $rows .= '<tr>'
-                . '<td>' . htmlspecialchars($e['name']) . '</td>'
+                . '<td>' . htmlspecialchars($label) . '</td>'
                 . '<td>' . htmlspecialchars($e['type']) . '</td>'
                 . '<td>' . (float)($e['quantity'] ?? 1) . '</td>'
                 . '<td>' . number_format((float)($c['material'] ?? 0), 2) . '</td>'

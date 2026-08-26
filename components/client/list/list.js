@@ -18,11 +18,7 @@ var comp = {
         this.load();
     },
     methods: {
-        esc(s) {
-            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-            });
-        },
+        esc(s) { return FAB.esc(s); },
         async load() {
             this.loading = true;
             try {

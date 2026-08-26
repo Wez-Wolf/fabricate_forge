@@ -1,0 +1,166 @@
+/* components/quote/materials — supplier material take-off tab */
+
+.C_tab_content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.C_summary_cards {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+.C_card {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+.C_card_label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.C_card_value {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.C_section {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.C_section_header {
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_section_header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.C_actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.C_hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.C_loading {
+    display: flex;
+    justify-content: center;
+    padding: 3rem 0;
+}
+
+.C_empty {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.C_table_wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-x: auto;
+}
+
+.C_table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.C_table th,
+.C_table td {
+    padding: 0.5rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+.C_strong { font-weight: 600; }
+.C_right { text-align: right; }
+
+/* ── Supplier material take-off: grouped sections ── */
+.C_takeoff_group {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+}
+
+.C_takeoff_group_header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-muted, var(--border));
+    font-weight: 700;
+}
+
+.C_takeoff_group_name {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.8rem;
+}
+
+.C_takeoff_group_meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-dim);
+}
+
+.C_takeoff_group_cost {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.C_takeoff_table {
+    border: none;
+}
+
+.C_takeoff_table th,
+.C_takeoff_table td {
+    padding: 0.35rem 0.75rem;
+}
+
+.C_takeoff_total_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-top: 2px solid var(--text);
+}
+
+.C_takeoff_total_cost {
+    font-weight: 700;
+}

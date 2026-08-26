@@ -1,0 +1,75 @@
+<div class="C_tab_content">
+    <div class="C_section">
+        <div class="C_section_header">
+            <h2>Entity Hierarchy Tree</h2>
+            <span class="C_hint">Click an item to edit — click the arrow to expand/collapse.</span>
+        </div>
+        <!-- tree control bar -->
+        <div v-if="treeLoading" class="C_loading">
+            <forge-loader variant="dots" label="Loading tree..." />
+        </div>
+        <template v-else>
+            <div v-if="treeData.length > 0" class="C_toolbar">
+                <forge-button @click="collapseAll" cls="ghost">Collapse All</forge-button>
+                <forge-button @click="expandAll" cls="ghost">Expand All</forge-button>
+                <forge-input v-model="query" cls="C_input_sm" placeholder="Search tree..." @input="onFilter" :icon="'search'" />
+                <span v-if="treeSearch.length > 0" class="C_hint">Esc to clear | ⏎ Edit</span>
+            </div>
+            <div v-if="treeData.length > 0" class="C_tree">
+                <!-- forge-tree v2: generic self-recursive tree.
+                     forge owns chrome (branch connectors, chevron w/ aria-expanded,
+                     indentation, selection). We own the node BODY via the #entity
+                     slot — identity + material/process/cost layers per entity type.
+                     The slot is forwarded down every recursion level, so this one
+                     template renders the whole hierarchy. -->
+                <forge-tree
+                    v-for="n in filteredTreeData"
+                    :key="n.id + '-' + treeVersion"
+                    :entity="n"
+                    :subs="n.children"
+                    :isRoot="true"
+                    :icon="iconFor(n)"
+                    :expanded="expanded"
+                    @onSelect="onEdit"
+                    @onUpdate="loadTree">
+                    <template #entity="entity">
+                        <!-- component child nodes: material / process (the per-part dropdown) -->
+                        <div v-if="entity.__synthetic === 'material'" class="C_node_row C_comp_row">
+                            <forge-svg s_path="material" class="C_comp_icon" />
+                            <span class="C_comp_kind">Material</span>
+                            <span class="C_node_name" :title="entity.name">{{ entity.name }}</span>
+                        </div>
+                        <div v-else-if="entity.__synthetic === 'process'" class="C_node_row C_comp_row">
+                            <forge-svg s_path="cog" class="C_comp_icon" />
+                            <span class="C_comp_kind">Process</span>
+                            <span class="C_node_name" :title="entity.name">{{ entity.name }}</span>
+                        </div>
+                        <!-- real entity nodes: identity row only. Material/process
+                             live in the expandable children, not the node header. -->
+                        <template v-else>
+                        <div class="C_node_row" @click.stop="onEdit(entity)" @keydown.enter="onEdit(entity)" tabindex="0" :aria-label="'Edit ' + (entity.name || entity.item_number || '')">
+                            <span class="C_node_badge" :class="'t-' + entity.type">{{ abbr(entity.type) }}</span>
+                            <!-- Meaningful label: description carries the real identity
+                                 ("Flg SO 200"), name is the BOM tag (A1-2) → tooltip. -->
+                            <span class="C_node_name" :title="entity.name || entity.item_number">{{ entity.description || entity.name || entity.item_number }}</span>
+                            <span class="C_node_tag" v-if="entity.description && entity.name && entity.name !== entity.description">{{ entity.name }}</span>
+                            <span class="C_node_type">({{ entity.type }})</span>
+                            <span class="C_qty" :class="{ 'C_qty_one': !(entity.quantity > 1) }">×{{ entity.quantity }}</span>
+                            <span class="C_boq_id" v-if="sourceInfo(entity).item_no" :title="sourceInfo(entity).desc || 'From BoQ item '+sourceInfo(entity).item_no" @click.stop="viewSource(entity)">#{{ sourceInfo(entity).item_no }}</span>
+                            <span class="C_node_mass num" v-if="massOf(entity) > 0">{{ massOf(entity) }} kg</span>
+                            <span class="C_node_cost num">
+                                <span v-if="warnOf(entity).length" class="C_node_warning" title="Cost or material issues detected"><forge-svg s_path="alert-triangle" /></span>
+                                {{ fmtMoney(costOf(entity)) }}
+                            </span>
+                        </div>
+                        </template>
+                    </template>
+                </forge-tree>
+            </div>
+            <div v-else class="C_empty">
+                <p>No entity hierarchy yet.</p>
+                <p class="C_hint">Add items or import a BOM to build the tree.</p>
+            </div>
+        </template>
+    </div>
+</div>

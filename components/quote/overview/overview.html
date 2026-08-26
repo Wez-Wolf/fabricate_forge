@@ -1,0 +1,61 @@
+<div class="C_tab_content">
+    <!-- Quote header strip -->
+    <div class="C_quote_strip">
+        <div class="C_qs_name">{{ quote.name }}</div>
+        <div class="C_qs_meta">
+            <span class="C_badge" :class="'C_status_' + status">{{ status }}</span>
+            <span>{{ quote.data.customerName || 'No customer' }}</span>
+            <span>{{ currency }}</span>
+            <span v-if="marginPercent != null">Margin {{ marginPercent }}%</span>
+            <span v-if="validity">Valid {{ validity }} days</span>
+            <span>{{ entityCount }} items</span>
+        </div>
+    </div>
+
+    <!-- Money -->
+    <div class="C_summary_cards">
+        <div class="C_card"><span class="C_card_label">Material</span><span class="C_card_value num">{{ money(totals.material) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Process</span><span class="C_card_value num">{{ money(totals.processTotal) }}</span></div>
+        <div class="C_card"><span class="C_card_label">On-costs</span><span class="C_card_value num">{{ money(onCostsTotal) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Margin</span><span class="C_card_value num">{{ money(totals.margin) }}</span></div>
+        <div class="C_card C_card_total"><span class="C_card_label">Grand Total</span><span class="C_card_value num">{{ money(totals.total) }}</span></div>
+    </div>
+
+    <!-- Mass + hours -->
+    <div class="C_summary_cards C_cards_second">
+        <div class="C_card"><span class="C_card_label">Total Mass</span><span class="C_card_value num">{{ mass(totals.massKg) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Boilermaking</span><span class="C_card_value num">{{ hours(totals.boilerHrs) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Welding</span><span class="C_card_value num">{{ hours(totals.weldHrs) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Machining</span><span class="C_card_value num">{{ hours(totals.machHrs) }}</span></div>
+        <div class="C_card"><span class="C_card_label">Labor</span><span class="C_card_value num">{{ money(totals.labor) }}</span></div>
+    </div>
+
+    <!-- Detail sections -->
+    <div class="C_stats_grid">
+        <div class="C_section">
+            <div class="C_section_header"><h2>On-costs</h2></div>
+            <div class="C_stat_rows">
+                <div class="C_stat_row" v-for="r in onCostRows" :key="r.label">
+                    <span>{{ r.label }}</span><span class="num">{{ money(r.value) }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="C_section">
+            <div class="C_section_header"><h2>By Item Type</h2></div>
+            <div class="C_stat_rows">
+                <div class="C_stat_row" v-for="r in typeRows" :key="r.label">
+                    <span>{{ r.label }}</span><span class="num">{{ r.value }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="C_section">
+            <div class="C_section_header"><h2>Material by Category</h2></div>
+            <div class="C_stat_rows">
+                <div class="C_stat_row" v-for="r in materialGroupRows" :key="r.label">
+                    <span>{{ r.label }}</span><span class="num">{{ money(r.value) }}</span>
+                </div>
+                <div v-if="!materialGroupRows.length" class="C_empty"><p>No materials on this quote yet.</p></div>
+            </div>
+        </div>
+    </div>
+</div>

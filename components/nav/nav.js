@@ -23,24 +23,24 @@ var comp = {
             isDark: true,
             tabs: [
                 { tag: 'dashboard', name: 'Dashboard', svg: 'layout-dashboard', comp: 'dashboard' },
-                { tag: 'quotes',    name: 'Quotes',    svg: 'file-text',        comp: 'quotes' },
-                { tag: 'clients',   name: 'Clients',   svg: 'users',            comp: 'clients' },
-                { tag: 'suppliers', name: 'Suppliers', svg: 'truck',            comp: 'suppliers' },
-                { tag: 'library',   name: 'Library',   svg: 'library',          comp: 'library' },
-                { tag: 'tools',     name: 'Tools',     svg: 'calculator',       comp: 'tools' },
-                { tag: 'prefabs',   name: 'Prefabs',   svg: 'boxes',            comp: 'prefabs' },
-                { tag: 'orders',    name: 'Orders',    svg: 'clipboard-list',   comp: 'orders' },
-                { tag: 'procurement', name: 'Procurement', svg: 'truck',        comp: 'procurement' },
-                { tag: 'production',  name: 'Production',  svg: 'activity',     comp: 'production' },
-                { tag: 'reports',   name: 'Reports',   svg: 'bar-chart',        comp: 'reports' },
-                { tag: 'settings',  name: 'Settings',  svg: 'settings',         comp: 'settings' },
-                { tag: 'about',     name: 'About',     svg: 'info',             comp: 'about' },
-                { tag: 'admin',     name: 'Admin',     svg: 'shield',           comp: 'admin' },
+                { tag: 'quotes',    name: 'Quotes',    svg: 'file-text',        comp: 'quote-list' },
+                { tag: 'clients',     name: 'Clients',     svg: 'users',         comp: 'clients' },
+                { tag: 'library',     name: 'Library',     svg: 'library',       comp: 'library' },
+                { tag: 'shop-floor',  name: 'Shop Floor',  svg: 'factory',       comp: 'shop-floor' },
+                { tag: 'reports',     name: 'Reports',     svg: 'bar-chart',     comp: 'reports' },
+                { tag: 'admin',       name: 'Admin',       svg: 'shield',        comp: 'admin' },
             ],
         };
     },
     created() {
-        var self = this;
+        // Register the route listener FIRST — the early returns below (auth
+        // gate, login redirect) skip the rest of created(). If we only register
+        // after them, a boot on /login (the common auth flow) leaves the
+        // listener unregistered for the whole session, so SPA navigations
+        // (open quote / Back to Quotes) never re-resolve the route.
+        this._onPathChange = () => { this.resolveRoute(); };
+        this.$root.$on('onPathChange', this._onPathChange);
+
         // Auth gate — redirect to the public landing page if not authenticated
         // (welcome-first app; /login is reachable from the landing's Sign in)
         if (!LS || !LS.get('auth_id') || LS.get('auth_id') === '-100') {
@@ -48,7 +48,7 @@ var comp = {
             return;
         }
         this.loadUser();
-        this.$root.$on('user-updated', function() { self.loadUser(); });
+        this.$root.$on('user-updated', () => { this.loadUser(); });
         // Authed user opened an invite link → join the team, consume the cookie.
         this.consumeInvite();
         // Sync theme state from DOM (theme-init already applied it pre-paint)
@@ -58,18 +58,9 @@ var comp = {
             ROUTER.navigate('/nav/dashboard');
             return;
         }
-        if (typeof MAIN !== 'undefined' && MAIN && !MAIN.processClear) {
-            MAIN.processClear = function() { ROUTER.navigate('/login'); };
-        }
         this.resolveRoute();
-        // SPA clicks on quote rows navigate /nav/quotes -> /nav/quotes/<id>;
-        // processPath only forwards tab_url = parts[1] ('quotes' in both cases),
-        // so the tab_url watcher never fires for the detail segment. Listen on
-        // the root bus (MAIN emits onPathChange on every popstate) and re-run
-        // the deferred route resolution.
-        var self = this;
-        this._onPathChange = function() { self.resolveRoute(); };
-        this.$root.$on('onPathChange', this._onPathChange);
+        // (onPathChange listener registered at the TOP of created() so it
+        // survives the early returns — see the auth/login redirects above.)
     },
     watch: {
         // Same-route navigation / browser back-forward with a new ?user_id=
@@ -94,18 +85,17 @@ var comp = {
         // Invite link (?invite=CODE): authed user joining a team.
         // Cookie was set at boot (index.php) before the router navigated.
         consumeInvite() {
-            var self = this;
             var m = document.cookie.match(/(?:^|; )fab_invite=([A-Za-z0-9]+)/);
             if (m) {
                 WEB.api('./api/team.php', {
                     action: 'join',
                     input: { invite_code: m[1] },
-                }).then(function (r) {
+                }).then((r) => {
                     var d = (r && r.data) || r || {};
                     if (d.status === 'joined') {
                         TOAST.show('You joined ' + (d.team_name || 'the team'), 'success');
                     }
-                }).catch(function () {});
+                }).catch(() => {});
             }
             // Post-signup welcome: server set fab_joined=<team> when the new
             // account auto-joined via an invite link.
@@ -125,47 +115,54 @@ var comp = {
             this.isDark = html.classList.contains('dark');
             if (LS) LS.set('theme', this.isDark ? 'dark' : 'light');
         },
+        // Open the settings/about slide-out panel (replaces the Settings + About tabs)
+        openSettingsPanel() {
+            POPUP.show('Settings', {
+                comp: 'settings',
+                props: {},
+                width: '600px',
+                height: 'auto',
+            });
+        },
         // Route /nav/<tab>[/<id>] — a second segment (quote id) routes to the
         // detail component via forge-nav.setPage, everything else is a tab.
         // Deferred past forge-nav's own tabUrl watcher (which would overwrite
         // pageComp with the unresolved 'quotes/<id>' tag).
         resolveRoute() {
-            var self = this;
-            setTimeout(function() { // 300ms: outlast forge-nav's tabUrl watcher
+            setTimeout(() => { // 300ms: outlast forge-nav's tabUrl watcher
                 var parts = [];
                 try { parts = ROUTER.decodePath(); } catch (e) { parts = []; }
                 // tab_url only carries the first segment (e.g. 'quotes');
                 // decodePath carries the full route (['nav','quotes','<id>'])
                 if (parts.length === 0) {
-                    parts = (self.tab_url || '').split('/').filter(Boolean);
+                    parts = (this.tab_url || '').split('/').filter(Boolean);
                 } else {
                     parts = parts.filter(function(p) { return p !== 'nav'; });
                 }
                 if (parts.length >= 2 && parts[0] === 'quotes') {
-                    if (self.$refs.nav) {
-                        self.$refs.nav.setPage('quote-view', { tab_url: parts.join('/') });
+                    if (this.$refs.nav) {
+                        this.$refs.nav.setPage('quote-view', { tab_url: parts.join('/') });
                     }
-                } else if (self.$refs.nav && self.$refs.nav.pageComp === 'quote-view') {
+                } else if (this.$refs.nav && this.$refs.nav.pageComp === 'quote-view') {
                     // Left the quote detail (back/forward/tab click) — restore
                     // the tab page so the detail doesn't linger on the list URL.
-                    var tag = parts[0] || self.tab_url || 'dashboard';
-                    var tab = self.tabs.find(function (t) { return t.tag === tag; });
-                    self.$refs.nav.setPage(tab ? tab.comp : tag, { tab_url: parts.join('/') });
+                    var tag = parts[0] || this.tab_url || 'dashboard';
+                    var tab = this.tabs.find(function (t) { return t.tag === tag; });
+                    this.$refs.nav.setPage(tab ? tab.comp : tag, { tab_url: parts.join('/') });
                 }
             }, 300);
         },
         loadUser() {
-            var self = this;
             var authId = LS.get('auth_id');
             if (!authId) return;
             WEB.api('./api/user.php', {
                 action: 'get_preferences',
                 input: { auth_id: authId }
-            }).then(function(res) {
+            }).then((res) => {
                 var data = (res && res.data) || res || {};
-                if (data.name) self.userName = data.name;
-                if (data.role) self.userRole = data.role;
-            }).catch(function() {});
+                if (data.name) this.userName = data.name;
+                if (data.role) this.userRole = data.role;
+            }).catch(() => {});
         },
         onLogout() {
             var id = LS.get('auth_id');

@@ -38,20 +38,15 @@ class cost extends Base
      */
     const APPLY_DEFAULT_ON_COSTS = true;
 
-    // ── Estimating defaults (calibrate against your shop!) ──
-    /** Pipe shop handling: BM hours per kg (handling/cutting/fitting fee). */
-    const PIPE_SHOP_HRS_PER_KG = 0.05;
     /** Transport related to paint & lining: R per ton (in-house). */
     const TRANSPORT_PER_TON = 850;
     /** R/sqm paint & lining rates by execution mode (in-house vs subcontract). */
     const PAINT_RATES = [
         'inhouse' => [
             'ext' => 45.0, 'int' => 35.0, 'line' => 0.0,
-            'coating1' => 0.0, 'coating2' => 0.0, 'coating3' => 0.0, 'coating4' => 0.0,
         ],
         'subcontract' => [
             'ext' => 65.0, 'int' => 55.0, 'line' => 0.0,
-            'coating1' => 0.0, 'coating2' => 0.0, 'coating3' => 0.0, 'coating4' => 0.0,
         ],
     ];
 
@@ -72,66 +67,105 @@ class cost extends Base
     }
 
     /**
-     * Extract all process component data for an entity (merged hours).
-     */
-    private function getProcessHours($entityId)
-    {
-        $comps = $this->getComponents($entityId, 'process');
-        $hours = [];
-        foreach ($comps as $c) {
-            $hours = \api\process::mergeHours($hours, $c['data'] ?? []);
-        }
-        return $hours;
-    }
-
-    /**
-     * Look up a material library row (global or own).
+     * Look up a material (shared reference data — reads are global).
+     * Materials are entities (type='material') with specification/dimensions/
+     * rate components; the legacy material_library row shape is reconstructed
+     * so the kind-aware costing below reads `data.*` exactly as before.
      */
     private function getLibraryMaterial($materialId)
     {
         if (!$materialId) return null;
-        $res = $this->pgCrud->read([
-            'table' => 'material_library',
-            'where' => 'id = $1 AND (user_id_owner IS NULL OR user_id_owner = $2)',
-            'params' => [$materialId, $this->effOwnerId()],
-            'limit' => 1,
-        ]);
-        return $res['data'][0] ?? null;
-    }
-
-    /**
-     * Compute mass (kg) from a material component:
-     *   - profile (mass_per_meter × length / 1000)
-     *   - plate/sheet (L×W×T / 1e9 × density)
-     *   - explicit mass field wins
-     */
-    private function calcMass($materialData, $libraryItem)
-    {
-        if (!empty($materialData['mass'])) return (float)$materialData['mass'];
-
-        $density = (float)($libraryItem['density'] ?? $materialData['density'] ?? 0);
-        $length = (float)($materialData['length'] ?? 0);
-        $width = (float)($materialData['width'] ?? 0);
-        $thickness = (float)($materialData['thickness'] ?? $libraryItem['thickness'] ?? 0);
-        $category = $materialData['category'] ?? ($libraryItem['library_category'] ?? '');
-
-        // Section/profile: mass_per_meter × length / 1000 (mm → m)
-        $massPerMeter = (float)($libraryItem['mass_per_meter'] ?? 0);
-        if ($massPerMeter > 0 && $length > 0) {
-            return $massPerMeter * $length / 1000;
-        }
-        // Plate: volume (m³) × density
-        if ($category === 'plate' && $length > 0 && $width > 0 && $thickness > 0 && $density > 0) {
-            return $length * $width * $thickness / 1e9 * $density;
-        }
-        // Density-only fallback (approx cylinder/bar)
-        if ($density > 0 && $length > 0 && $width > 0) {
-            return $length * $width * $thickness / 1e9 * $density;
-        }
-        return 0.0;
+        $m = $this->getMaterialEntity($materialId);
+        if (!$m) return null;
+        return $this->materialRowShape($m['entity'], $m['comps']);
     }
 
     // ── ECS compute + write ────────────────────────────
+
+    /**
+     * Compute material cost from COMPONENT DATA ONLY — no entity kinds.
+     * Pricing precedence (first match wins):
+     *   1. costPerEa  → bought-out item:  costPerEa × quantity
+     *   2. costPerM   → linear stock:     costPerM × lengthM × quantity
+     *   3. otherwise  → mass-based:       massKg × unitCostPerKg × quantity
+     * Hours are NEVER derived here (except shop handling when the material
+     * comp explicitly carries shopHrsPerKg) — all other hours come from
+     * process components entered by the estimator.
+     *
+     * @return array{massKg,matCost,bmHrs,wHrs,mHrs,extAreaM2,intAreaM2,weldLenM,buttLenM,filletLenM,weldSizeUsed,od,wt,weldType,unitCostPerKg}
+     */
+    private function priceMaterial($matData, $libraryItem, $quantity, $lengthMm)
+    {
+        $libData = is_array($libraryItem['data'] ?? null) ? $libraryItem['data'] : [];
+        $unitCostPerKg = (float)($libraryItem['unit_cost'] ?? 0);
+        $lengthM = $lengthMm / 1000;
+
+        // Per-item variables (captured on the material component by edititem)
+        $weldSizeOverride = (float)($matData['weldSize'] ?? 0);
+        $costPerM = (float)($matData['costPerM'] ?? 0);
+        $costPerEa = (float)($matData['costPerEa'] ?? 0);
+        $shopHrsPerKg = (float)($matData['shopHrsPerKg'] ?? 0);
+
+        // Mass from the mass system (entity-agnostic physics). The caller
+        // passes the TOTAL cut length (primary + D1 green secondary) so every
+        // pricing path — costPerM, areas, AND mass — sees the same length.
+        $massResult = self::massCompute($matData, $libraryItem, $lengthMm);
+        $massKg = $massResult['massKg'];
+        $od = $massResult['od'];
+        $wt = $massResult['wt'];
+
+        // Unit-cost fallback when the library row carries no price: estimate
+        // per-kg from the material TYPE (a material property, not an entity kind).
+        if ($unitCostPerKg <= 0) {
+            $materialType = strtolower((string)($libraryItem['material_type'] ?? $libraryItem['grade'] ?? ''));
+            if (str_contains($materialType, 'stainless') || str_contains($materialType, '304') || str_contains($materialType, '316')) $unitCostPerKg = 6.5;
+            elseif (str_contains($materialType, 'aluminum')) $unitCostPerKg = 4.5;
+            else $unitCostPerKg = 3.2;
+        }
+
+        // ── Material cost: data-driven precedence, no entity kinds. ──
+        if ($costPerEa > 0) {
+            $matCost = $costPerEa * $quantity;                       // bought-out
+        } elseif ($costPerM > 0 && $lengthM > 0) {
+            $matCost = $costPerM * $lengthM * $quantity;             // linear stock
+        } else {
+            $matCost = $massKg * $unitCostPerKg * $quantity;         // mass-based
+        }
+
+        // Shop handling: BM hrs/kg ONLY when explicitly carried on the
+        // material component (any item). No implicit per-kind defaults —
+        // every other hour comes from process components.
+        $bmHrs = $shopHrsPerKg > 0 ? $massKg * $shopHrsPerKg : 0.0;
+
+        // ── Surface areas: sum whichever data fields exist. ──
+        $extAreaM2 = 0.0;
+        if (!empty($libData['paintAreaPerM']) && $lengthM > 0) $extAreaM2 += (float)$libData['paintAreaPerM'] * $lengthM;
+        if (!empty($libData['paintArea'])) $extAreaM2 += (float)$libData['paintArea'];
+        if (!empty($libData['extArea'])) $extAreaM2 += (float)$libData['extArea'];
+        if ($lengthMm > 0 && (float)($matData['width'] ?? 0) > 0) $extAreaM2 += $lengthMm * (float)$matData['width'] / 1e6;
+        // Internal area: cylindrical bore when OD/WT/length are known (geometry).
+        $intAreaM2 = ($od > 0 && $wt > 0 && $lengthM > 0)
+            ? \api\weldmodel::pipeIntAreaM2($od, $wt, $lengthM) : 0.0;
+
+        // ── Weld metadata (display only — never drives hours). ──
+        $weldSizeUsed = $weldSizeOverride > 0 ? $weldSizeOverride : (($wt > 0) ? \api\weldmodel::weldSizeFor($wt) : null);
+        $weldLenM = 0.0; $buttLenM = 0.0; $filletLenM = 0.0;
+        if (!empty($libData['od']) || !empty($libData['weldCirc'])) {
+            $weldLenM = \api\weldmodel::fittingWeldLengthM($libData['od'] ?? [], $libData['weldCirc'] ?? []);
+            $buttLenM = $weldLenM;
+        }
+        $ftype = strtoupper((string)($matData['weldType'] ?? $libData['type'] ?? '')) ?: null;
+
+        return [
+            'massKg' => $massKg, 'matCost' => $matCost, 'bmHrs' => $bmHrs,
+            'wHrs' => 0.0, 'mHrs' => 0.0, 'extAreaM2' => $extAreaM2,
+            'intAreaM2' => $intAreaM2, 'weldLenM' => $weldLenM,
+            'buttLenM' => $buttLenM, 'filletLenM' => $filletLenM,
+            'weldSizeUsed' => $weldSizeUsed, 'od' => $od, 'wt' => $wt,
+            'weldType' => $ftype,
+            'unitCostPerKg' => $unitCostPerKg,
+        ];
+    }
 
     /**
      * Calculate entity cost: READ components → COMPUTE 5 layers →
@@ -147,6 +181,19 @@ class cost extends Base
         $entity = $this->getEntity($entityId);
         if (!$entity) return ['error' => 'Entity not found.', 'error_code' => 404];
 
+        // Memoization: if the cost component is fresh (entity + driving
+        // components unchanged since last calc), return it without recomputing.
+        // Watchers trigger recalculateUpward on mutation, so by the time we get
+        // here the entity is usually stale — but during an upward walk we may
+        // reach a parent whose own inputs are unchanged (only a child changed),
+        // and we skip its own calc while still rolling it up.
+        if ($this->isEntityCostFresh($entityId)) {
+            $existing = $this->getComponents($entityId, 'cost');
+            if ($existing) {
+                return ['data' => $existing[0]['data'], 'component_id' => $existing[0]['id']];
+            }
+        }
+
         // Normalize entity.data — legacy rows may store it as a JSON array of
         // merged objects ([] + '||' merge bug). Fold lists into one object.
         $entityData = $entity['data'] ?? [];
@@ -161,190 +208,85 @@ class cost extends Base
 
         $options = \getVal($input, 'options', []);
         $quantity = (float)($entity['quantity'] ?? 1);
-        // Margin precedence: line-item override (entity.data.marginPercent) →
-        // quote-global (options.margin_percent, passed by load_quote from the
-        // quote's data.marginPercent or the user's defaultMarkupPercent) →
-        // DEFAULT_MARGIN_PERCENT.
         $itemMargin = $entityData['marginPercent'] ?? null;
         $marginPercent = $itemMargin !== null
             ? (float)$itemMargin
             : (float)\getVal($options, 'margin_percent', self::DEFAULT_MARGIN_PERCENT);
 
-        // READ: material component → library → kind-aware costing.
-        // kind = 'pipe' | 'fitting' | 'flange' | 'material' (plates/sections).
+        // READ: material component → library. Costing is data-driven off the
+        // component fields (costPerEa / costPerM / mass × rate) — no entity
+        // kinds. The library category is kept ONLY as a display label.
         $matData = $this->getMaterialData($entityId);
         $libraryItem = $this->getLibraryMaterial($matData['materialLibraryId'] ?? null);
         $libData = is_array($libraryItem['data'] ?? null) ? $libraryItem['data'] : [];
-        $kind = $libData['kind'] ?? null;
-        if (!$kind) {
-            $libCat = $libraryItem['library_category'] ?? '';
-            $profile = strtolower((string)($libraryItem['profile'] ?? ''));
-            $kind = $libCat === 'flange' ? 'flange'
-                : ($libCat === 'fitting' ? 'fitting'
-                : ($libCat === 'fastener' ? 'fastener'
-                : ($profile === 'pipe' ? 'pipe' : 'material')));
-        }
-        $unitCostPerKg = (float)($libraryItem['unit_cost'] ?? 0);
+        $kind = ($libData['kind'] ?? '')
+            ?: (($libraryItem['library_category'] ?? '') ?: (strtolower((string)($libraryItem['profile'] ?? '')) ?: 'material'));
 
-        // ── Unit-cost fallback for fittings/flanges ──
-        // Library piping rows (fittings/flanges) carry mass but often no
-        // unit_cost (seeded from reference data, not price lists). When that
-        // happens, fall back to a per-kg rate by material type so the line
-        // still prices sensibly. Users can always override with costPerEa on
-        // the material component (the edititem form) for exact pricing.
-        if ($unitCostPerKg <= 0 && ($kind === 'fitting' || $kind === 'flange' || $kind === 'pipe' || $kind === 'material')) {
-            $materialType = strtolower((string)($libraryItem['material_type'] ?? $libraryItem['grade'] ?? ''));
-            if (str_contains($materialType, 'stainless') || str_contains($materialType, '304') || str_contains($materialType, '316')) {
-                $unitCostPerKg = 6.5;   // SS ~ R130/kg
-            } elseif (str_contains($materialType, 'aluminum')) {
-                $unitCostPerKg = 4.5;
-            } else {
-                $unitCostPerKg = 3.2;   // carbon steel ~ R65/kg
-            }
-        }
-
-        // Per-item variables (captured on the material component by edititem)
+        // Primary length from material data; D1 green secondary length (if set)
+        // is extra length for material cost calculation.
         $lengthMm = (float)($matData['length'] ?? 0);
-        $lengthM = $lengthMm / 1000;
-        $buttWeldQty = (int)($matData['buttWeldQty'] ?? 0);
-        $weldSizeOverride = (float)($matData['weldSize'] ?? 0);
-        $costPerM = (float)($matData['costPerM'] ?? 0);        // pipe: R/m
-        $costPerEa = (float)($matData['costPerEa'] ?? 0);      // fitting/flange: R/ea
-        $shopHrsPerKg = (float)($matData['shopHrsPerKg'] ?? 0); // pipe: BM hrs/kg
-        $pipeWtForWeld = (float)($matData['pipeWt'] ?? 0);     // flange: WT of pipe fitted to
+        $secondaryLengthMm = (float)($matData['length_secondary'] ?? 0);
+        $totalLengthMm = $lengthMm + $secondaryLengthMm;
+        $m = $this->priceMaterial($matData, $libraryItem, $quantity, $totalLengthMm);
+        $massKg = $m['massKg']; $matCost = $m['matCost'];
+        $bmHrs = $m['bmHrs']; $wHrs = $m['wHrs']; $mHrs = $m['mHrs'];
+        $extAreaM2 = $m['extAreaM2']; $intAreaM2 = $m['intAreaM2'];
+        $weldLenM = $m['weldLenM']; $buttLenM = $m['buttLenM']; $filletLenM = $m['filletLenM'];
+        $weldSizeUsed = $m['weldSizeUsed']; $wt = $m['wt'];
+        $ftype = $m['weldType'];
+        $unitCostPerKg = $m['unitCostPerKg'];
 
-        // Per-unit accumulators; totals are × quantity below.
-        $massKg = 0.0; $matCost = 0.0; $bmHrs = 0.0; $wHrs = 0.0; $mHrs = 0.0;
-        $extAreaM2 = 0.0; $intAreaM2 = 0.0;
-        $weldSizeUsed = null; $weldLenM = 0.0;
-        $buttLenM = 0.0; $filletLenM = 0.0;   // for weld-metal mass
+        // Explicit surface areas on the material component override derived areas.
+        if (isset($matData['extArea'])) $extAreaM2 = (float)$matData['extArea'];
+        if (isset($matData['intArea'])) $intAreaM2 = (float)$matData['intArea'];
 
-        switch ($kind) {
-            case 'pipe':
-                // Core: kg/m + paint area/m (OD-based). Variables: cost R/m, butt weld qty.
-                $kgPerM = (float)($libraryItem['mass_per_meter'] ?? $libData['kgPerM'] ?? 0);
-                $od = (float)($libData['od'] ?? 0);
-                $wt = (float)($libData['wt'] ?? 0);
-                $massKg = $kgPerM * $lengthM;
-                $matCost = ($costPerM > 0 ? $costPerM * $lengthM : $massKg * $unitCostPerKg) * $quantity;
-                // Shop handling fee: BM hrs / kg
-                $bmHrs = $massKg * ($shopHrsPerKg > 0 ? $shopHrsPerKg : self::PIPE_SHOP_HRS_PER_KG);
-                // Butt welds: qty × π × OD, weld size next-up from WT
-                if ($buttWeldQty > 0 && $od > 0) {
-                    $weldLenM = $buttWeldQty * \api\weldmodel::buttLengthM($od);
-                    $buttLenM = $weldLenM;
-                    $weldSizeUsed = $weldSizeOverride > 0 ? $weldSizeOverride : \api\weldmodel::weldSizeFor($wt);
-                    $wHrs = \api\weldmodel::buttWeldHours($wt, $weldLenM);
-                }
-                $extAreaM2 = (float)($libData['paintAreaPerM'] ?? 0) * $lengthM;
-                $intAreaM2 = \api\weldmodel::pipeIntAreaM2($od, $wt, $lengthM);
-                break;
-
-            case 'fitting':
-                // Core: mass ea, type, schedule/spec, area. Weld length = Σ end × π.
-                $massKg = (float)($libData['massKg'] ?? 0);
-                $wtRef = (float)($libData['wt'][0] ?? 0);
-                $weldLenM = \api\weldmodel::fittingWeldLengthM($libData['od'] ?? [], $libData['weldCirc'] ?? []);
-                $buttLenM = $weldLenM;
-                $weldSizeUsed = $weldSizeOverride > 0 ? $weldSizeOverride : \api\weldmodel::weldSizeFor($wtRef);
-                $wHrs = \api\weldmodel::buttWeldHours($wtRef, $weldLenM);
-                $extAreaM2 = (float)($libData['extArea'] ?? 0);
-                $intAreaM2 = \api\weldmodel::fittingIntAreaM2($libData['od'] ?? [], $libData['wt'] ?? [], $libData['dims'] ?? []);
-                $matCost = ($costPerEa > 0 ? $costPerEa : $massKg * $unitCostPerKg) * $quantity;
-                break;
-
-            case 'flange':
-                // Core: mass ea, type (WN/SO/SW/BLIND/LOOSE), area, pipe OD.
-                // Weld from type — a LOOSE/BLIND flange is bolted, not welded.
-                // The material component's weldType overrides the library type
-                // (so a loose flange on a closure prices with ZERO welds).
-                $massKg = (float)($libData['massKg'] ?? 0);
-                $ftype = strtoupper((string)($matData['weldType'] ?? $libData['type'] ?? ''));
-                $pipeOd = (float)($libData['pipeOd'] ?? 0);
-                $wtForWeld = $pipeWtForWeld > 0 ? $pipeWtForWeld : (float)($matData['thickness'] ?? 0);
-                $weldSizeUsed = $weldSizeOverride > 0 ? $weldSizeOverride : \api\weldmodel::weldSizeFor($wtForWeld);
-                $wl = \api\weldmodel::flangeWeldLengthM($ftype, $pipeOd);
-                $weldLenM = $wl['butt'] + $wl['fillet'];
-                $buttLenM = $wl['butt'];
-                $filletLenM = $wl['fillet'];
-                $wHrs = \api\weldmodel::buttWeldHours($wtForWeld, $wl['butt'])
-                      + \api\weldmodel::filletWeldHours($weldSizeUsed, $wl['fillet']);
-                $extAreaM2 = (float)($libData['paintArea'] ?? 0);
-                $matCost = ($costPerEa > 0 ? $costPerEa : $massKg * $unitCostPerKg) * $quantity;
-                break;
-
-            case 'fastener':
-                // Fasteners are priced PER ITEM (unit_cost is R/ea in the
-                // library), not by mass. costPerEa on the material component
-                // overrides the library price.
-                $massKg = (float)($libData['massKg'] ?? $matData['mass'] ?? 0);
-                $matCost = ($costPerEa > 0 ? $costPerEa : $unitCostPerKg) * $quantity;
-                break;
-
-            default:
-                // Plates / sections / generic — mass-based as before.
-                $massKg = $this->calcMass($matData, $libraryItem);
-                $matCost = $massKg * $unitCostPerKg * $quantity;
-                $extAreaM2 = ($lengthMm > 0 && (float)($matData['width'] ?? 0) > 0)
-                    ? $lengthMm * (float)$matData['width'] / 1e6 : 0.0;
-                break;
-        }
-
-        // Weld metal mass (kg) — butt + fillet cross-section × length × steel
-        // density. Surfaces how much weld metal each joint consumes (drives
-        // electrode/wire usage for consumables). Per unit; × quantity later.
+        // Weld metal mass (kg) — butt + fillet cross-section × length × steel density.
         $weldMetalKg = 0.0;
         if ($buttLenM > 0 || $filletLenM > 0) {
-            $weldMetalKg = (\api\weldmodel::buttAreaPerM((float)($wtForWeld ?? $wt ?? 0)) * $buttLenM
+            $weldMetalKg = (\api\weldmodel::buttAreaPerM($wt) * $buttLenM
                           + \api\weldmodel::filletAreaPerM((float)($weldSizeUsed ?? 0)) * $filletLenM) * 7850 / 1e6;
         }
 
-        // READ: process hours → price via rate hierarchy.
-        // Auto hours (weld model + shop handling) merge with manual hours from the form.
-        $hours = $this->getProcessHours($entityId);
+        // ── PROCESS FRAGMENT: the process system prices its own hours. ──
+        // Material-side shop handling (shopHrsPerKg on the material comp)
+        // merges into boilermaking hours before pricing.
+        $hours = \api\process::hoursForEntity($entityId, $this);
+        error_log("FRAGDBG hours=" . json_encode($hours) . " entity=$entityId");
+        if (($m['bmHrs'] ?? 0) > 0) {
+            $hours['boilermaking'] = ($hours['boilermaking'] ?? 0) + (float)$m['bmHrs'];
+        }
         $rates = $this->getAllEffectiveRates($entityId);
-        $processItems = \api\process::extractItems($hours); // $hours is a named-field map {trade: hrs}
+        $proc = \api\process::pricedFragment($hours, $rates, $quantity);
 
-        $allHours = ['boilermaking' => $bmHrs, 'welding' => $wHrs, 'machining' => $mHrs];
-        foreach ($processItems as $it) {
-            $allHours[$it['name']] = ($allHours[$it['name']] ?? 0) + $it['time'];
-        }
-        $perTrade = []; $processTotal = 0.0;
-        foreach ($allHours as $trade => $hrs) {
-            if ($hrs <= 0) continue;
-            $rate = $rates[$trade]['rate'] ?? 0;
-            $cost = round($hrs * $rate * $quantity, 2);
-            $perTrade[$trade] = $cost;
-            $processTotal += $cost;
-        }
-        $labTotal = $processTotal;
-        $bmHrs = $allHours['boilermaking'] ?? 0;
-        $wHrs = $allHours['welding'] ?? 0;
-        $mHrs = $allHours['machining'] ?? 0;
+        $allHours = $proc['hours'];
+        $perTrade = $proc;
+        $processTotal = $proc['processTotal'];
+        $labTotal = $proc['labor'];
+        $bmHrs = $proc['boilerHrs'];
+        $wHrs = $proc['weldHrs'];
+        $mHrs = $proc['machHrs'];
 
         // L3 on-costs. Paint & lining are DERIVED from core areas × R/sqm rates,
         // with in-house vs subcontract selection; flat per-item overrides win.
         $onCosts = $entity['data']['onCosts'] ?? [];
         $paintingOpts = $onCosts['painting'] ?? [];
+        $liningOpts = $onCosts['lining'] ?? [];
         // Paint & lining only apply when explicitly configured on the item
-        // (mode chosen or any rate entered) — otherwise stay 0.
-        $paintConfigured = !empty($paintingOpts) || !empty($entityData['paintMode']);
+        // (mode chosen or any rate entered) — otherwise stay 0. Lining config
+        // (onCosts.lining) is a sibling of painting, not nested under it.
+        $paintConfigured = !empty($paintingOpts) || !empty($liningOpts) || !empty($entityData['paintMode']);
         $paintMode = $paintingOpts['mode'] ?? $entityData['paintMode'] ?? 'inhouse';
         $paintMode = in_array($paintMode, ['inhouse', 'subcontract'], true) ? $paintMode : 'inhouse';
         $rateSet = self::PAINT_RATES[$paintMode];
 
         $extPaintRate = (float)\getVal($paintingOpts, 'extPaint', $rateSet['ext']);
         $intPaintRate = (float)\getVal($paintingOpts, 'intPaint', $rateSet['int']);
-        $lineRate = (float)\getVal($paintingOpts, 'line', $rateSet['line']);
-        $coatingSum = 0.0;
-        foreach (['coating1', 'coating2', 'coating3', 'coating4'] as $c) {
-            $coatingSum += (float)\getVal($paintingOpts, $c, $rateSet[$c]);
-        }
-        $useSurface = $extPaintRate > 0 || $intPaintRate > 0 || $lineRate > 0 || $coatingSum > 0;
+        $lineRate = (float)\getVal($liningOpts, 'line', \getVal($paintingOpts, 'line', $rateSet['line']));
+        $useSurface = $extPaintRate > 0 || $intPaintRate > 0 || $lineRate > 0;
 
-        // Painting = ext + int paint; Lining = internal line + coatings 1-4
+        // Painting = ext + int paint; Lining = internal line
         $paint = ($paintConfigured && $useSurface) ? ($extAreaM2 * $extPaintRate + $intAreaM2 * $intPaintRate) * $quantity : 0.0;
-        $lining = ($paintConfigured && $useSurface) ? $intAreaM2 * ($lineRate + $coatingSum) * $quantity : 0.0;
+        $lining = ($paintConfigured && $useSurface) ? $intAreaM2 * $lineRate * $quantity : 0.0;
         if (isset($onCosts['paint'])) $paint = (float)$onCosts['paint'] * $quantity;
         if (isset($onCosts['lining'])) $lining = (float)$onCosts['lining'] * $quantity;
 
@@ -358,7 +300,15 @@ class cost extends Base
         $consumablesRaw = \getVal($options, 'consumables', $onCosts['consumables'] ?? null);
         $servicesRaw = \getVal($options, 'services', $onCosts['services'] ?? null);
         $ndtRaw = \getVal($options, 'ndt', $onCosts['ndt'] ?? null);
-        $applyDefaultPolicy = empty($onCosts) && !$paintConfigured && self::APPLY_DEFAULT_ON_COSTS;
+        // House defaults only kick in when the caller specified NO on-cost at
+        // all. If any on-cost option was passed explicitly, it's an explicit
+        // spec — leave the unpassed ones at zero (the 5-layer contract).
+        $explicitOnCostOpts = $consumablesRaw !== null || $servicesRaw !== null || $ndtRaw !== null;
+        // House default policy applies only to FABRICATED items — i.e. items
+        // with process hours (bought-outs carry no process comps, so they get
+        // no defaults). Generic: data-driven, no entity-type check.
+        $hasProcessHours = array_sum($allHours) > 0;
+        $applyDefaultPolicy = !$explicitOnCostOpts && empty($onCosts) && !$paintConfigured && self::APPLY_DEFAULT_ON_COSTS && $hasProcessHours;
         if ($applyDefaultPolicy) {
             $matPerUnit = $quantity > 0 ? $matCost / $quantity : 0;
             $procPerUnit = $quantity > 0 ? $processTotal / $quantity : 0;
@@ -421,7 +371,6 @@ class cost extends Base
             'margin' => self::r2($margin),
             'marginPercent' => $marginPercent,
             'subtotal' => self::r2($subtotal),
-            'total' => self::r2($total),
             'unitCost' => self::r2($quantity ? $total / $quantity : 0),
             'currency' => $entity['data']['currency'] ?? 'USD',
             'lastUpdated' => date('c'),
@@ -448,25 +397,6 @@ class cost extends Base
     }
 
     /**
-     * Assembly cost: own cost + recursive BOM rollup (children × quantity).
-     * WRITE: child costs are their own cost components (computed recursively);
-     * the assembly's cost component includes the rolled-up totals.
-     */
-    public function handle_calculate_assembly($input = [])
-    {
-        $entityId = \getVal($input, 'entity_id');
-        if (!$entityId) return ['error' => 'entity_id is required.'];
-        $maxDepth = (int)\getVal($input, 'depth', 10);
-
-        $tree = $this->buildCostTree($entityId, 0, $maxDepth);
-
-        // Roll up: each child's total × link quantity, summed at each level
-        $this->rollUp($tree);
-
-        return $tree;
-    }
-
-    /**
      * Batch: calculate cost for many entities in one call (kills N+1).
      * Input: { entity_ids: [...], options?: { margin_percent, consumables, … } }
      * — writes cost components on each.
@@ -484,6 +414,11 @@ class cost extends Base
                 $results[$id] = $r;
             } else {
                 $results[$id] = $r['data'];
+                // component_id rides along so orchestration (recalculate_entity)
+                // can PATCH rolled values onto the exact comp it just wrote.
+                // (Without it, patchComponentData(null) silently no-ops and
+                // rolled totals never persist.)
+                $results[$id]['component_id'] = $r['component_id'] ?? null;
             }
         }
         return $results;
@@ -501,6 +436,93 @@ class cost extends Base
         $comps = $this->getComponents($entityId, 'cost');
         if (!$comps) return ['error' => 'No cost component yet — run calculate_entity first.', 'error_code' => 404];
         return $comps[0]['data'];
+    }
+
+    /**
+     * Read the cost components for a SET of entity ids in one query.
+     * Returns { entityId: costData } (only entities that HAVE a cost comp).
+     * This is the ONE seam components/quotes/reports use to project cost onto
+     * rows — they must not filter `type='cost'` comps themselves (cost ADR).
+     * Pure read: never computes or writes.
+     */
+    public function get_costs_by_entities($entityIds)
+    {
+        if (!$entityIds) return [];
+        $ids = array_values(array_unique(array_filter($entityIds)));
+        if (!$ids) return [];
+        $res = $this->pgCrud->read([
+            'table' => 'component',
+            'where' => 'entity_id = ANY($1::uuid[]) AND type = $2 AND user_id_owner = $3',
+            'params' => ['{' . implode(',', $ids) . '}', 'cost', $this->effOwnerId()],
+        ]);
+        $out = [];
+        foreach (($res['data'] ?? []) as $c) {
+            if (!empty($c['entity_id'])) $out[$c['entity_id']] = $c['data'] ?? [];
+        }
+        return $out;
+    }
+
+    /**
+     * Delete all cost components for an entity root's member entities — the
+     * destructive reset used by recalculate_entity. Owned here (cost ADR) so
+     * no caller runs DELETE on the component table.
+     * Input: { entity_id }
+     */
+    public function clear_entity_costs($entityId)
+    {
+        if (!$entityId) return ['error' => 'entity_id is required.'];
+        $this->pgCrud->execute(
+            "DELETE FROM component
+             WHERE type = 'cost'
+               AND user_id_owner = \$1
+               AND (quote_id = \$2 OR entity_id IN (
+                   SELECT id FROM entity WHERE quote_id = \$2 AND user_id_owner = \$1
+               ))",
+            [$this->effOwnerId(), $entityId]
+        );
+        return true;
+    }
+
+    /**
+     * Patch (merge) fields onto an entity's cost component — the incremental
+     * write seam (used by recalculate_entity to attach rolled totals). Pure
+     * write; no-op if the entity has no cost comp yet.
+     * Input: { entity_id, patch }
+     */
+    public function patch_entity_cost($entityId, $patch)
+    {
+        if (!$entityId || !is_array($patch) || empty($patch)) return null;
+        $comps = $this->getComponents($entityId, 'cost');
+        if (!$comps) return null;
+        $this->patchComponentData($comps[0]['id'], $patch);
+        return $comps[0]['id'];
+    }
+
+    /**
+     * Write/upsert a cost component — the ONE write seam. Non-cost code that
+     * persists cost (e.g. systems.php recalc's root totals) calls THIS instead
+     * of touching the component table directly (cost ADR).
+     * Input: { entity_id, data, quote_id? }
+     */
+    public function write_entity_cost($entityId, $costData, $quoteId = null)
+    {
+        if (!$entityId) return ['error' => 'entity_id is required.'];
+        $comps = $this->getComponents($entityId, 'cost');
+        if ($comps) {
+            $this->patchComponentData($comps[0]['id'], $costData);
+            return $comps[0]['id'];
+        }
+        $res = $this->pgCrud->save([
+            'table' => 'component',
+            'data' => [
+                'entity_id' => $entityId,
+                'type' => 'cost',
+                'data' => $costData,
+                'quote_id' => $quoteId,
+                'user_id_owner' => $this->effOwnerId(),
+            ],
+        ]);
+        return $res['data']['id'] ?? null;
     }
 
     // ── Internal ───────────────────────────────────────
@@ -527,67 +549,6 @@ class cost extends Base
             ],
         ]);
         return $res['data']['id'] ?? null;
-    }
-
-    /**
-     * Build a nested cost tree: each node = entity snapshot + its own cost.
-     */
-    private function buildCostTree($entityId, $depth, $maxDepth, $visited = [])
-    {
-        if ($depth > $maxDepth || in_array($entityId, $visited)) return null;
-        $visited[] = $entityId;
-
-        $entity = $this->getEntity($entityId);
-        if (!$entity) return null;
-
-        $own = $this->handle_calculate_entity(['entity_id' => $entityId]);
-        $node = [
-            'id' => $entity['id'],
-            'name' => $entity['name'],
-            'type' => $entity['type'],
-            'quantity' => (float)($entity['quantity'] ?? 1),
-            'own_cost' => $own['data'] ?? null,
-            'children' => [],
-        ];
-
-        $links = $this->getLinks($entityId, 'contains');
-        foreach ($links['out'] as $link) {
-            $child = $this->buildCostTree($link['to_id'], $depth + 1, $maxDepth, $visited);
-            if ($child) {
-                $child['link_quantity'] = (float)($link['quantity'] ?? 1);
-                $node['children'][] = $child;
-            }
-        }
-        return $node;
-    }
-
-    /**
-     * Post-order rollup: child total × link quantity accumulates into parent.
-     */
-    private function rollUp(&$node)
-    {
-        $rollup = 0.0;
-        foreach ($node['children'] as &$child) {
-            $this->rollUp($child);
-            $childTotal = (float)($child['rolled_total'] ?? $child['own_cost']['total'] ?? 0);
-            $rollup += $childTotal * (float)($child['link_quantity'] ?? 1);
-        }
-        $ownTotal = (float)($node['own_cost']['total'] ?? 0);
-        $node['rolled_total'] = self::r2($ownTotal + $rollup);
-        return $node;
-    }
-
-    private function getAllEffectiveRates($entityId)
-    {
-        $ratesApi = new \api\rates();
-        $ratesApi->user_id = $this->effOwnerId();
-        return $ratesApi->handle_get_all_effective(['entity_id' => $entityId]);
-    }
-
-    /** Round to 2 decimals (mirrors round2 util). */
-    public static function r2($n)
-    {
-        return round((float)$n, 2);
     }
 }
 

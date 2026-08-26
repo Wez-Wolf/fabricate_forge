@@ -21,6 +21,14 @@ include_once(__DIR__ . "/systems.php");
 
 class boms extends Base
 {
+    /**
+     * Display-name length cap for imported entities. BoQ row descriptions are
+     * long (full size/schedule/grade strings); cramming all 200 chars into the
+     * entity name looks terrible in the tree/entities list. Cap the `name` and
+     * keep the full description in the `description` column instead.
+     */
+    const MAX_NAME_LENGTH = 80;
+
     protected function buildTable()
     {
         $this->ensureEcsTables();
@@ -83,16 +91,19 @@ class boms extends Base
                 'matched_id' => $materialId,
             ];
 
-            // Create entity (name/description truncated — column is VARCHAR(200))
-            $name = mb_substr($description, 0, 200);
+            // Create entity. `name` = short display label (capped so the
+            // tree/entities list stays readable); `description` = full row text.
+            $name = $this->shortName($description);
             $entityRes = $this->pgCrud->save([
                 'table' => 'entity',
                 'data' => [
                     'type' => $type,
                     'name' => $name,
-                    'description' => $name,
+                    'description' => mb_substr($description, 0, 2000),
                     'quote_id' => $quoteId,
-                    'quantity' => $quantity,
+                    // D5: entities are singular — row qty rides the contains-link
+                    // (linkHierarchy puts it there).
+                    'quantity' => 1,
                     'user_id_owner' => $this->effOwnerId(),
                 ],
             ]);
@@ -109,7 +120,6 @@ class boms extends Base
                 $matData = [
                     'materialLibraryId' => $materialId,
                     'category' => $this->detectCategory($description, $material),
-                    'quantity' => $quantity,
                 ];
                 foreach (['length', 'width', 'thickness', 'mass'] as $dim) {
                     $v = \getVal($row, $dim);
@@ -190,7 +200,8 @@ class boms extends Base
     }
 
     /**
-     * Recalculate a BOM's total (delegates to systems.load_quote).
+     * Recalculate a root's total (delegates to systems.recalculate_entity —
+     * the explicit system-invocation path).
      */
     public function handle_calculate($input = [])
     {
@@ -198,7 +209,7 @@ class boms extends Base
         if (!$quoteId) return ['error' => 'quote_id is required.'];
         $systems = new \api\systems();
         $systems->user_id = $this->effOwnerId();
-        return $systems->handle_load_quote(['quote_id' => $quoteId]);
+        return $systems->handle_recalculate_entity(['entity_id' => $quoteId]);
     }
 
     /**
@@ -249,15 +260,9 @@ class boms extends Base
         foreach ($mats as $m) {
             if (!empty($m['materialLibraryId'])) $libIds[$m['materialLibraryId']] = true;
         }
-        $libRows = [];
-        if ($libIds) {
-            $libRes = $this->pgCrud->read([
-                'table' => 'material_library',
-                'where' => 'id = ANY($1::uuid[])',
-                'params' => ['{' . implode(',', array_keys($libIds)) . '}'],
-            ]);
-            foreach (($libRes['data'] ?? []) as $r) $libRows[$r['id']] = $r;
-        }
+        // Materials are entities — batch-read the referenced material entities
+        // and reconstruct the legacy row shape for takeOffLine.
+        $libRows = $this->materialEntitiesByIds(array_keys($libIds));
 
         $linkRes = $this->pgCrud->read([
             'table' => 'link',
@@ -418,21 +423,28 @@ class boms extends Base
      */
     private function suggestFlanges($dn)
     {
+        // Materials are entities — flange specs live in the specification
+        // component; batch-load the matched entities as legacy shapes.
         $res = $this->pgCrud->read([
-            'table' => 'material_library',
-            'where' => 'library_category = $1 AND data->>\'dn\' = $2',
+            'table' => 'component',
+            'where' => "type = 'specification' AND data->>'library_category' = \$1 AND data->>'dn' = \$2",
             'params' => ['flange', (string)$dn],
             'limit' => 4,
         ]);
         $out = [];
-        foreach (($res['data'] ?? []) as $f) {
-            $d = is_array($f['data'] ?? null) ? $f['data'] : [];
-            $out[] = [
-                'id' => $f['id'],
-                'name' => $f['name'],
-                'dn' => $d['dn'] ?? null,
-                'rating' => $d['rating'] ?? $d['type'] ?? '',
-            ];
+        if ($res['data'] ?? []) {
+            $libRows = $this->materialEntitiesByIds(array_column($res['data'], 'entity_id'));
+            foreach ($res['data'] as $c) {
+                $f = $libRows[$c['entity_id']] ?? null;
+                if (!$f) continue;
+                $d = is_array($f['data'] ?? null) ? $f['data'] : [];
+                $out[] = [
+                    'id' => $f['id'],
+                    'name' => $f['name'],
+                    'dn' => $d['dn'] ?? null,
+                    'rating' => $d['rating'] ?? $d['type'] ?? '',
+                ];
+            }
         }
         return $out;
     }
@@ -516,15 +528,9 @@ class boms extends Base
         foreach ($mats as $m) {
             if (!empty($m['materialLibraryId'])) $libIds[$m['materialLibraryId']] = true;
         }
-        $libRows = [];
-        if ($libIds) {
-            $libRes = $this->pgCrud->read([
-                'table' => 'material_library',
-                'where' => 'id = ANY($1::uuid[])',
-                'params' => ['{' . implode(',', array_keys($libIds)) . '}'],
-            ]);
-            foreach (($libRes['data'] ?? []) as $r) $libRows[$r['id']] = $r;
-        }
+        // Materials are entities — batch-read the referenced material entities
+        // and reconstruct the legacy row shape for takeOffLine.
+        $libRows = $this->materialEntitiesByIds(array_keys($libIds));
 
         // 5. DFS from the quote: multiplier = ∏ link quantities on path
         $lines = [];
@@ -533,9 +539,12 @@ class boms extends Base
             if (in_array($nodeId, $visited)) return;
             $visited[] = $nodeId;
             foreach (($children[$nodeId] ?? []) as [$childId, $qty]) {
-                $childMultiplier = $multiplier * $qty;
                 $child = $byId[$childId] ?? null;
                 if (!$child) continue;
+                // Multiplier = ∏(link qty × ENTITY qty) on the path — entity
+                // quantity is the BoQ count (same semantics as the rollup);
+                // links are structural.
+                $childMultiplier = $multiplier * $qty * max((float)($child['quantity'] ?? 1), 1);
                 // Emit a take-off line if this entity carries its own material
                 if (!empty($mats[$childId])) {
                     $lines[] = $this->takeOffLine($child, $mats[$childId], $libRows, $childMultiplier);
@@ -679,7 +688,8 @@ class boms extends Base
         $cat = strtolower((string)($lib['library_category'] ?? $matData['category'] ?? 'material'));
         $profile = strtolower((string)($lib['profile'] ?? ''));
         $density = (float)($lib['density'] ?? $matData['density'] ?? 0);
-        $len = (float)($matData['length'] ?? 0);
+        $len = (float)($matData['length'] ?? 0)
+             + (float)($matData['length_secondary'] ?? 0); // D1 green — extra length must be procured too
         $wid = (float)($matData['width'] ?? 0);
         $thk = (float)($matData['thickness'] ?? $lib['thickness'] ?? 0);
         $lengthM = $len / 1000;
@@ -726,13 +736,28 @@ class boms extends Base
         $qtyEa = ($unit === 'ea') ? round($multiplier, 0) : 0;
         $extended = $perUnitCost * ($unit === 'kg' ? $qtyKg : ($unit === 'm' ? $qtyM : $qtyEa));
 
+        // Size key, not cut-length key: the takeoff is a supplier RFQ — one
+        // line per material+size with summed quantities.
+        //   pipes:     DN + schedule (the length is a cut length, not a size)
+        //   flanges:   DN + type (SO/LOOSE/WN — loose + welded share a library
+        //              row, so the material comp's weldType disambiguates)
+        //   others:    length×width×thickness as before (real size variants)
         $dims = [];
-        foreach (['length', 'width', 'thickness'] as $d) {
-            $v = $matData[$d] ?? null;
-            if ($v !== null && $v !== '') $dims[] = (string)$v;
+        if ($profile === 'pipe' || $profile === 'tube') {
+            if (isset($libData['dn']) && $libData['dn'] !== '') $dims[] = 'DN' . $libData['dn'];
+            $sched = $libData['schedule'] ?? '';
+            if ($sched !== '') $dims[] = (string)$sched;
+        } elseif ($cat === 'fitting' || $cat === 'flange') {
+            if (isset($libData['dn']) && $libData['dn'] !== '') $dims[] = 'DN' . $libData['dn'];
+            $ftype = (string)($matData['weldType'] ?? $libData['type'] ?? '');
+            if ($ftype !== '') $dims[] = strtoupper($ftype);
+        } else {
+            foreach (['length', 'width', 'thickness'] as $d) {
+                $v = $matData[$d] ?? null;
+                if ($v !== null && $v !== '') $dims[] = (string)$v;
+            }
         }
-        // Group key: material id + dimensions (two leaves same material but
-        // different size = two supplier lines)
+        // Group key: material id + size (same material same size = one line)
         $groupKey = ($matData['materialLibraryId'] ?? 'none') . '|' . implode('x', $dims);
 
         return [
@@ -756,13 +781,9 @@ class boms extends Base
     }
     private function detectEntityType($description)
     {
-        $d = strtolower(trim($description ?? ''));
-        // Container-ish words only (things that GROUP parts).
-        if (preg_match('/(header|skid|frame|assembly|sub-assembly|subassembly|unit|tank|vessel|section|structure|system|module|platform|framework|cage)/', $d)) return 'assembly';
-        // Fastener ONLY when the item STARTS as a bolt/nut/washer set (a valve
-        // desc contains "ins screw rising stem" but is NOT a fastener).
-        if (preg_match('/^(stud bolt|bolt|nut|washer|stud|\d+\s*(of|off|x)\s*m\d+)/', $d)) return 'fastener';
-        return 'part';
+        // Single source of truth in _base.php (assembly words + full bought-in
+        // hardware / fastener set, incl. cplg half-couplings).
+        return $this->classifyEntityType($description);
     }
 
     private function detectCategory($description, $material)
@@ -1003,6 +1024,35 @@ class boms extends Base
                 ],
             ]);
         }
+    }
+
+    /**
+     * Build a short, readable display name from a (possibly long) BoQ row
+     * description. Trims whitespace/trailing commas and caps at MAX_NAME_LENGTH,
+     * breaking on a sentence boundary when possible so we don't chop mid-word.
+     */
+    private function shortName($text)
+    {
+        $text = trim((string)$text);
+        // Normalize repeated spaces and trailing punctuation
+        $text = preg_replace('/\s+/', ' ', $text);
+        $text = rtrim($text, " \t\n\r\0\x0B,");
+
+        if (mb_strlen($text) <= self::MAX_NAME_LENGTH) {
+            return $text ?: 'Item';
+        }
+
+        // Prefer cutting at a comma (BoQ descriptions are comma-separated
+        // attributes) so the name keeps whole attributes, not a chopped word.
+        $cut = mb_substr($text, 0, self::MAX_NAME_LENGTH);
+        $lastComma = mb_strrpos($cut, ',');
+        if ($lastComma && $lastComma > (self::MAX_NAME_LENGTH / 2)) {
+            $cut = mb_substr($cut, 0, $lastComma);
+        } else {
+            $space = mb_strrpos($cut, ' ');
+            if ($space && $space > (self::MAX_NAME_LENGTH / 2)) $cut = mb_substr($cut, 0, $space);
+        }
+        return rtrim($cut ?: mb_substr($text, 0, self::MAX_NAME_LENGTH), " \t,") ;
     }
 }
 

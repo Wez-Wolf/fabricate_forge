@@ -1,0 +1,44 @@
+<div class="C_tab_content">
+
+        <div class="C_section">
+            <div class="C_section_header C_section_header_actions">
+                <h2>{{ lens === 'catalog' ? 'Catalog' : 'Items in place' }} <span class="C_count">{{ rows.length }}</span></h2>
+                <div class="C_actions">
+                    <forge-button :label="lens === 'catalog' ? 'Show in place' : 'Show catalog'" @click="lens = (lens === 'catalog' ? 'usage' : 'catalog')" />
+                    <forge-button label="Add Items" @click="openBatchAdd" />
+                    <forge-button label="Add Item" @click="openAddEntity" />
+                    <forge-button label="From Prefab" @click="openPrefabPicker" />
+                </div>
+            </div>
+
+            <div v-if="!rows.length && !loadingRows" class="C_empty">
+                <p>No items on this quote yet.</p>
+                <p class="C_hint">Add a single item, paste a batch, or pull in a prefab.</p>
+                <forge-button label="Add Item" @click="openAddEntity" />
+            </div>
+            <forge-table v-else
+                :columns="columns"
+                :value="rows"
+                :actions="actions"
+                :searchable="true"
+                :tree="false"
+                :summary="summary"
+                row-key="id"
+                empty-text="No items match the current filters."
+                @row-click="editEntity"
+                @action="onAction">
+                <!-- Scoped cell slot demo: name cell + component-count pill -->
+                <template v-slot:cell-name="{ row }">
+                    <span class="C_strong">{{ row.name }}</span>
+                    <span v-if="row.component_count > 0" class="C_comp_count"
+                        :title="row.component_count + ' components (material / process / paint)'">{{ row.component_count }}</span>
+                </template>
+            </forge-table>
+        </div>
+    </div>
+
+        :quote-id="quoteId" :entities="entities" :quote="quote"
+        @changed="$emit('changed')" @dirty="$emit('dirty')" />
+
+        :entities="entities" :quote="quote" />
+</div>

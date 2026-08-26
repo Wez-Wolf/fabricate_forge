@@ -2,8 +2,7 @@
 /**
  * fabricate_forge/api/tools.php
  *
- * Calculator tools — server-side math for the Tools page, ported from the
- * original app's MaterialCalculator.vue / ProcessCalculator.vue components.
+ * Calculator tools — server-side math for the Tools page.
  *
  * Pure math: no tables, no side effects. Each `calculate` action returns the
  * full result set so the UI renders numbers exactly as computed.
@@ -363,9 +362,6 @@ class tools extends Base
             'totalCost' => self::r2($materialCost),
         ];
     }
-
-    private static function r2($v) { return round((float)$v, 2); }
-    private static function r6($v) { return round((float)$v, 6); }
 }
 
 \api\dispatchIfEntry(__FILE__);

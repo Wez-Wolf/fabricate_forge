@@ -2,32 +2,16 @@
  * components/library — materials library shell.
  * Owns: tabs (one per material type), search, type counts, supplier list,
  * the material editor, and the "All" generic table.
- * Each type tab delegates its table to its own sub-component
- * (library-plates, library-sections, library-pipe, ...) which renders
- * type-specific columns + colour badges.
+ * Each type tab delegates its table to the shared generic component
+ * `library-table` (kind selects columns + row mapping + colour badge).
  */
-
-// Weld size rule mirrors api/weldmodel.php: next size UP from actual WT.
-var WELD_SIZES = [3, 4, 5, 6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50];
-function weldSizeFor(wt) {
-    if (wt == null || wt <= 0) return '—';
-    for (var i = 0; i < WELD_SIZES.length; i++) { if (wt <= WELD_SIZES[i]) return WELD_SIZES[i]; }
-    return WELD_SIZES[WELD_SIZES.length - 1];
-}
-function uniqueJoin(arr) {
-    if (!Array.isArray(arr)) return arr != null ? String(arr) : '—';
-    var uniq = [];
-    for (var i = 0; i < arr.length; i++) {
-        if (arr[i] != null && uniq.indexOf(arr[i]) === -1) uniq.push(arr[i]);
-    }
-    return uniq.length ? uniq.join('×') : '—';
-}
 
 var comp = {
             data() {
         return {
             all: [],
             suppliers: [],
+            prefabCount: 0,
             search: '',
             activeTab: 'plates',
             loading: false,
@@ -40,6 +24,15 @@ var comp = {
                 { key: 'fittings',  name: 'Fittings' },
                 { key: 'flanges',   name: 'Flanges' },
                 { key: 'fasteners', name: 'Fasteners' },
+                { key: 'prefabs',   name: 'Prefabs' },
+            ],
+            legend: [
+                { label: 'Plate', c: '#3b82f6' }, { label: 'Sheet', c: '#60a5fa' },
+                { label: 'Angle', c: '#f59e0b' }, { label: 'Channel', c: '#fbbf24' },
+                { label: 'H/I-Beam', c: '#dc2626' }, { label: 'Bars', c: '#f97316' },
+                { label: 'Pipe', c: '#14b8a6' }, { label: 'Tube', c: '#06b6d4' },
+                { label: 'Fitting', c: '#8b5cf6' }, { label: 'Flange', c: '#ec4899' },
+                { label: 'Fastener', c: '#22c55e' },
             ],
         };
     },
@@ -48,17 +41,12 @@ var comp = {
         this.loadSuppliers();
     },
     computed: {
-        // tag → sub-component name
+        // tab → component: all material tabs share `library-table`; prefabs is its own shell
         activeComp() {
-            var map = {
-                plates: 'library-plates', sections: 'library-sections', pipe: 'library-pipe',
-                tube: 'library-tube', fittings: 'library-fittings', flanges: 'library-flanges',
-                fasteners: 'library-fasteners',
-            };
-            return map[this.activeTab] || '';
+            return this.activeTab === 'prefabs' ? 'prefabs' : 'library-table';
         },
         counts() {
-            var c = { plates: 0, sections: 0, pipe: 0, tube: 0, fittings: 0, flanges: 0, fasteners: 0 };
+            var c = { plates: 0, sections: 0, pipe: 0, tube: 0, fittings: 0, flanges: 0, fasteners: 0, prefabs: 0 };
             var groupToTab = {
                 'Plates & Sheets': 'plates', 'Sections & Bars': 'sections',
                 'Pipe': 'pipe', 'Tube': 'tube', 'Fittings': 'fittings',
@@ -68,6 +56,7 @@ var comp = {
                 var g = matGroup(m);
                 if (groupToTab[g]) c[groupToTab[g]]++;
             });
+            c.prefabs = this.prefabCount;
             return c;
         },
         // items passed to the active type sub-component (search + tab filtered)
@@ -85,11 +74,6 @@ var comp = {
         },
     },
     methods: {
-        esc(s) {
-            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-            });
-        },
         async loadSuppliers() {
             try {
                 var res = await WEB.api('./api/suppliers.php', { action: 'list', input: { limit: 200 } });
@@ -112,6 +96,10 @@ var comp = {
             } finally {
                 this.loading = false;
             }
+            try {
+                var pfs = await WEB.api('./api/prefabs.php', { action: 'list', input: {} });
+                this.prefabCount = (Array.isArray(pfs) ? pfs : (pfs.data || [])).length || 0;
+            } catch (e) { this.prefabCount = 0; }
         },
         tabFilter(tab) {
             return function (m) {
@@ -180,18 +168,7 @@ var comp = {
     },
 };
 
-// ── shared helpers (also used by the per-type sub-components' rows) ──
-function matColor(m) {
-    var prof = String(m.profile || '').toLowerCase();
-    var map = {
-        plate: '#3b82f6', sheet: '#60a5fa', angle: '#f59e0b', channel: '#fbbf24',
-        'i-beam': '#ef4444', 'h-beam': '#dc2626', 'flat bar': '#d97706',
-        'round bar': '#f97316', 'square bar': '#fb923c', pipe: '#14b8a6',
-        tube: '#06b6d4', fitting: '#8b5cf6', flange: '#ec4899', fastener: '#22c55e',
-    };
-    if (map[prof]) return map[prof];
-    return map[String(m.library_category || '').toLowerCase()] || '#94a3b8';
-}
+// ── shared helper ──
 function matGroup(m) {
     var prof = String(m.profile || '').toLowerCase();
     var cat = String(m.library_category || 'material').toLowerCase();

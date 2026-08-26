@@ -2,8 +2,7 @@
 /**
  * fabricate_forge/scripts/seed-test-quote.php
  *
- * Seeds a demo "Tank Skid" quote for a user, ported from the original
- * Fabricate app's imports/api/methods/test-data.js:
+ * Seeds a demo "Tank Skid" quote for a user:
  *
  *   Tank Skid Assembly (assembly, SS304 skid frame)
  *   ├─ Main Frame        (part, SS304, welding process)
@@ -197,4 +196,4 @@ echo "Seeded test quote for $email\n";
 echo "  Quote:     Test Project - Tank Skid ($quoteId)\n";
 echo "  Assembly:  Tank Skid Assembly ($assemblyId)\n";
 echo "  Parts:     Main Frame ($frameId), Support Bracket x2 ($bracketId)\n";
-echo "  Cost:      run the cost engine via systems.php load_quote\n";
+echo "  Cost:      run the cost engine via systems.php recalculate_entity\n";

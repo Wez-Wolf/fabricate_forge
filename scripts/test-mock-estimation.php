@@ -260,11 +260,12 @@ echo "\n--- Assembly Rollup ---\n";
 echo "Rolled total: " . ($assemblyCost['rolled_total'] ?? 0) . "\n";
 echo "Children count: " . (count($assemblyCost['children'] ?? [])) . "\n";
 
-// Load full quote with costs
-$quoteData = $systems->handle_load_quote(['quote_id' => $quoteId]);
+// Load summary (ECS: recalc writes, then entity rows for the report)
+$quoteData = $systems->handle_recalculate_entity(['entity_id' => $quoteId]);
+$entCount = count($entities->handle_list(['quote_id' => $quoteId, 'limit' => 200]));
 echo "\n--- Quote Summary ---\n";
-echo "Entities loaded: " . count($quoteData['entities'] ?? []) . "\n";
-echo "Total cost (auto-persisted): " . ($quoteData['total_cost'] ?? 0) . "\n";
+echo "Entities loaded: " . $entCount . "\n";
+echo "Total cost (persisted by recalc): " . ($quoteData['total_cost'] ?? 0) . "\n";
 
 // ── 11. Verify Cost Component Persistence ──
 $storedCost = $components->handle_list(['entity_id' => $frameId, 'type' => 'cost']);

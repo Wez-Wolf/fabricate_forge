@@ -1,14 +1,18 @@
 /**
  * components/reports — quote reports.
  * Summary of all quotes (status, totals) + export options.
+ *
+ * Currency-aware: each quote carries its own currency (data.currency); totals
+ * are per-quote. Aggregate cards display in the dominant currency among the
+ * quotes (falling back to the user's pref, then ZAR for this app).
  */
 var comp = {
     data() {
-        var self = this;
         return {
             quotes: [],
             loading: false,
             error: '',
+            reportCurrency: 'ZAR',   // dominant currency among quotes (set in load())
             margin: { avgMarginPercent: null, totalQuoteValue: 0, totalEstimatedMargin: 0, effectiveMarginRate: 0, quoteCount: 0 },
             byClient: [],
             monthly: [],
@@ -22,9 +26,7 @@ var comp = {
             ],
         };
         function esc(s) {
-            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-            });
+            return FAB.esc(s);
         }
     },
     created() {
@@ -46,8 +48,23 @@ var comp = {
     },
     methods: {
         num(v) { return parseFloat(v || 0); },
-        fmtMoney(v) {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(this.num(v));
+        currencyOf(q) {
+            return (q && q.data && q.data.currency) || this.reportCurrency;
+        },
+        // Format in the quote's own currency (or the report currency fallback).
+        fmtMoney(v, currency) { return FAB.fmtMoney(v, currency || this.reportCurrency); },
+        // Dominant currency among a set of quotes (most common → first).
+        dominantCurrency(quotes) {
+            var counts = {};
+            (quotes || []).forEach(function (q) {
+                var c = (q.data && q.data.currency) || 'ZAR';
+                counts[c] = (counts[c] || 0) + 1;
+            });
+            var best = 'ZAR', bestN = -1;
+            Object.keys(counts).forEach(function (c) {
+                if (counts[c] > bestN) { bestN = counts[c]; best = c; }
+            });
+            return best;
         },
         async load() {
             this.loading = true;
@@ -55,6 +72,7 @@ var comp = {
             try {
                 var res = await WEB.api('./api/systems.php', { action: 'list_quotes', input: { limit: 200 } });
                 this.quotes = (res && res.data) || res || [];
+                this.reportCurrency = this.dominantCurrency(this.quotes);
                 this.rebuild();
                 this.loadAnalytics();
             } catch (e) {
@@ -65,7 +83,6 @@ var comp = {
         },
         async loadAnalytics() {
             try {
-                var self = this;
                 var calls = [
                     WEB.api('./api/reports.php', { action: 'margin_summary', input: {} }),
                     WEB.api('./api/reports.php', { action: 'cost_by_client', input: {} }),
@@ -86,7 +103,7 @@ var comp = {
                     q.name || 'Quote',
                     (q.data && q.data.customerName) || '—',
                     q.status || 'draft',
-                    self.fmtMoney(q.total_cost),
+                    self.fmtMoney(q.total_cost, self.currencyOf(q)),
                     q.id,
                 ];
             });

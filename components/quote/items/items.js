@@ -1,6 +1,7 @@
 /**
  * components/quoteitems — batch line-item entry grid for a quote.
- * Rows of Item Name / Type / Qty / Description; emits submit with {items}.
+ * Rows of Item Name / Type / Description; emits submit with {items}.
+ * Entities are SINGULAR (qty always 1) — quantity is link data, set in the tree.
  */
 var comp = {
     mixins: [COMP.base],
@@ -9,6 +10,7 @@ var comp = {
             types: [
                 { v: 'part', label: 'Part' },
                 { v: 'assembly', label: 'Assembly' },
+                { v: 'fitting', label: 'Fitting (bought-in)' },
                 { v: 'fastener', label: 'Fastener' },
             ],
             items: [],
@@ -28,7 +30,8 @@ var comp = {
     },
     methods: {
         addRow() {
-            this.items.push({ name: '', type: 'part', quantity: 1, description: '' });
+            // singular entities — quantity is LINK data (set in the tree / Link tab)
+            this.items.push({ name: '', type: 'part', description: '' });
         },
         removeRow(i) {
             this.items.splice(i, 1);

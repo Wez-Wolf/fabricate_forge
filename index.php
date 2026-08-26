@@ -2,7 +2,6 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <script data-theme-key="fabricate_theme"><?php readfile('/var/www/html/forge/js/core/theme-init.js'); ?></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <base href="<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>/" />

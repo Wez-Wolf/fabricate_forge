@@ -1,0 +1,112 @@
+/* components/quote/overview — cost breakdown tab (forge-list grid) */
+
+.C_tab_content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.C_summary_cards {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+.C_card {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+.C_card_total {
+    border-left-color: var(--success);
+}
+
+.C_card_label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.C_card_value {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.C_section {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.C_section_header {
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_section_header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.C_list_wrap {
+    overflow-x: auto;
+}
+
+.C_strong { font-weight: 600; }
+.C_right { text-align: right; }
+
+/* tabular numbers in the cost grid */
+.C_num {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* material-kind badge (pipe/flange/fitting/material) */
+.C_kind_badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.375rem;
+    height: 1.375rem;
+    padding: 0 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.C_empty {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+/* ── Quote stats (stats-only overview) ── */
+.C_quote_strip { margin-bottom: 1.1rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--border, #e2e8f0); }
+.C_qs_name { font-size: 1.35rem; font-weight: 700; color: var(--text, #1e293b); }
+.C_qs_meta { display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-dim, #64748b); }
+.C_badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2, #f1f5f9); color: var(--text-dim, #64748b); }
+.C_status_approved { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+.C_status_submitted { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+.C_status_invoiced { background: rgba(124, 58, 237, 0.15); color: var(--secondary); }
+.C_status_rejected { background: rgba(var(--error-rgb), 0.15); color: var(--error); }
+.C_cards_second { margin-top: 0.75rem; }
+.C_stats_grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.25rem; }
+.C_stat_rows { display: flex; flex-direction: column; gap: 0.3rem; padding-top: 0.4rem; }
+.C_stat_row { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text, #1e293b); padding: 0.2rem 0; border-bottom: 1px dashed var(--border, #e2e8f0); }
+.C_stat_row .num { font-weight: 600; font-variant-numeric: tabular-nums; }

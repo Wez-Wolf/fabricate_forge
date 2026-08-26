@@ -21,9 +21,7 @@ var comp = {
             ],
         };
         function esc(s) {
-            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-            });
+            return FAB.esc(s);
         }
     },
     created() {
@@ -180,10 +178,10 @@ var comp = {
                 var qid = form.quote_id;
                 if (quote && quote.entity_id) assemblyId = quote.entity_id;
                 if (!assemblyId) {
-                    // Load the quote to find an assembly root
-                    var lq = await WEB.api('./api/systems.php', { action: 'load_quote', input: { quote_id: qid } });
-                    var data = (lq && lq.data) || lq || {};
-                    var entities = data.entities || [];
+                    // Load the quote's members to find an assembly root (ECS:
+                    // entities list is the entity-table query; no aggregate load)
+                    var ent = await WEB.api('./api/entities.php', { action: 'list', input: { quote_id: qid, limit: 200 } });
+                    var entities = Array.isArray(ent) ? ent : [];
                     var assembly = entities.filter(function (e) { return e.type === 'assembly'; })[0];
                     if (assembly) assemblyId = assembly.id;
                 }

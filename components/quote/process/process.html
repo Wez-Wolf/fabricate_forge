@@ -1,0 +1,24 @@
+<div class="C_tab_content">
+    <div class="C_summary_cards">
+        <div class="C_card">
+            <span class="C_card_label">Total Process Hours</span>
+            <span class="C_card_value num">{{ hours }}</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Process Cost</span>
+            <span class="C_card_value num">{{ fmtMoney(total) }}</span>
+        </div>
+    </div>
+    <div class="C_section">
+        <div class="C_section_header"><h2>Per-Entity Process</h2></div>
+        <div v-if="!entities.length" class="C_empty">
+            <p>No items on this quote yet.</p>
+        </div>
+        <div v-else class="C_table_wrap">
+            <forge-list
+                :fields="fields"
+                :value="rows"
+            />
+        </div>
+    </div>
+</div>

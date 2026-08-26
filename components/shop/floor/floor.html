@@ -1,0 +1,109 @@
+<div class="C_main">
+    <div class="C_header_row">
+        <h1 class="C_title">Shop Floor</h1>
+        <span class="C_subtitle">Orders, procurement, and production.</span>
+    </div>
+    <forge-tabs :tabs="subTabs" v-model="activeSubTab" />
+    <div v-if="activeSubTab === 'orders'" class="C_tab_content">
+        <!-- Orders table -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Orders</h2>
+            </div>
+            <div v-if="ordersLoading" class="C_loading">
+                <forge-loader variant="dots" label="Loading orders..." />
+            </div>
+            <div v-else-if="!orders.length" class="C_empty">
+                <p>No orders yet. Place your first order from an accepted quote.</p>
+            </div>
+            <div v-else class="C_table_wrap">
+                <table class="C_table">
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Quote</th>
+                            <th>Status</th>
+                            <th class="C_right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="o in orders" :key="o.id">
+                            <td class="C_strong">{{ o.order_number }}</td>
+                            <td>{{ o.quote_name }}</td>
+                            <td><span class="status-pill" :class="o.status">{{ o.status }}</span></td>
+                            <td class="C_right num">{{ fmtMoney(o.total) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div v-if="activeSubTab === 'procurement'" class="C_tab_content">
+        <!-- PO / SQ / RG -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Procurement</h2>
+            </div>
+            <div v-if="poLoading" class="C_loading">
+                <forge-loader variant="dots" label="Loading purchase orders..." />
+            </div>
+            <div v-else-if="!purchaseOrders.length" class="C_empty">
+                <p>No purchase orders yet.</p>
+            </div>
+            <div v-else class="C_table_wrap">
+                <table class="C_table">
+                    <thead>
+                        <tr>
+                            <th>PO #</th>
+                            <th>Supplier</th>
+                            <th>Status</th>
+                            <th class="C_right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="po in purchaseOrders" :key="po.id">
+                            <td class="C_strong">{{ po.po_number }}</td>
+                            <td>{{ po.supplier_name }}</td>
+                            <td><span class="status-pill" :class="po.status">{{ po.status }}</span></td>
+                            <td class="C_right num">{{ fmtMoney(po.total) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div v-if="activeSubTab === 'production'" class="C_tab_content">
+        <!-- Production records -->
+        <div class="C_section">
+            <div class="C_section_header">
+                <h2>Production Records</h2>
+            </div>
+            <div v-if="prodLoading" class="C_loading">
+                <forge-loader variant="dots" label="Loading production records..." />
+            </div>
+            <div v-else-if="!productionRecords.length" class="C_empty">
+                <p>No production records yet.</p>
+            </div>
+            <div v-else class="C_table_wrap">
+                <table class="C_table">
+                    <thead>
+                        <tr>
+                            <th>Quote</th>
+                            <th>Entity</th>
+                            <th class="C_right">Hours</th>
+                            <th class="C_right">Variance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="r in productionRecords" :key="r.id">
+                            <td>{{ r.quote_name }}</td>
+                            <td>{{ r.entity_name }}</td>
+                            <td class="C_right num">{{ r.hours }}</td>
+                            <td class="C_right num" :class="r.variance >= 0 ? 'C_green' : 'C_red'">{{ r.variance }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

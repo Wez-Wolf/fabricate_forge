@@ -96,7 +96,13 @@ class components extends Base
         ]);
 
         if (!empty($res['error'])) return $res;
-        return $this->handle_get(['id' => $res['data']['id'] ?? null]);
+        $comp = $this->handle_get(['id' => $res['data']['id'] ?? null]);
+
+        // Watcher: material/process components drive cost → recalc upward
+        if (in_array($type, ['material', 'process'])) {
+            $this->recalculateUpward($entityId);
+        }
+        return $comp;
     }
 
     /**
@@ -120,7 +126,14 @@ class components extends Base
         }
 
         $this->patchComponentData($id, $patch);
-        return $this->handle_get(['id' => $id]);
+        $comp = $this->handle_get(['id' => $id]);
+
+        // Watcher: material/process components drive cost → recalc upward
+        $compType = $comp['type'] ?? null;
+        if (in_array($compType, ['material', 'process'])) {
+            $this->recalculateUpward($comp['entity_id'] ?? null);
+        }
+        return $comp;
     }
 
     /**
@@ -154,12 +167,21 @@ class components extends Base
             "DELETE FROM component WHERE id = \$1 AND user_id_owner = \$2",
             [$id, $this->effOwnerId()]
         );
+
+        // Watcher: material/process components drive cost → recalc upward
+        $compType = \getVal($existing, 'type');
+        if (in_array($compType, ['material', 'process'])) {
+            $this->recalculateUpward(\getVal($existing, 'entity_id'));
+        }
         return ['success' => true, 'id' => $id];
     }
 
     /**
      * Batch: get all components across an entity's whole BOM (children via
      * contains links) in one call. Used by quote material/process tabs.
+     * Material components get a material_label attached (name + grade +
+     * profile from the library) so the UI never needs a separate call to
+     * resolve ids → display labels.
      */
     public function handle_get_by_quote($input = [])
     {
@@ -172,7 +194,43 @@ class components extends Base
             'params' => [$quoteId, $this->effOwnerId()],
             'order_fields' => ['created_at ASC'],
         ]);
-        return $res['data'] ?? [];
+        $rows = $res['data'] ?? [];
+        return $this->attachMaterialLabels($rows);
+    }
+
+    /**
+     * Attach material_label (name + grade + profile) to material component
+     * rows — one batched query for just the ids referenced in this quote.
+     */
+    private function attachMaterialLabels(&$rows)
+    {
+        $ids = [];
+        foreach ($rows as $r) {
+            if (($r['type'] ?? '') !== 'material') continue;
+            $data = is_array($r['data'] ?? null) ? $r['data'] : [];
+            $libId = $data['materialLibraryId'] ?? null;
+            if ($libId) $ids[$libId] = true;
+        }
+        if (!$ids) return $rows;
+
+        // Materials are entities — batch-read shapes, build labels.
+        $shapes = $this->materialEntitiesByIds(array_keys($ids));
+        $labels = [];
+        foreach ($shapes as $id => $m) {
+            $label = $m['name'] ?? '';
+            if (!empty($m['grade']) && strpos($label, $m['grade']) === false) $label .= ' ' . $m['grade'];
+            if (!empty($m['profile']) && strpos($label, $m['profile']) === false) $label .= ' ' . $m['profile'];
+            $labels[$id] = $label;
+        }
+
+        foreach ($rows as &$r) {
+            if (($r['type'] ?? '') !== 'material') continue;
+            $data = is_array($r['data'] ?? null) ? $r['data'] : [];
+            $libId = $data['materialLibraryId'] ?? null;
+            if ($libId && isset($labels[$libId])) $r['material_label'] = $labels[$libId];
+        }
+        unset($r);
+        return $rows;
     }
 }
 

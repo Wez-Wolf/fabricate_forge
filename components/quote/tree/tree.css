@@ -1,0 +1,266 @@
+/* components/quote/tree — hierarchy tree tab.
+ * forge-tree owns the tree chrome (branch connectors, chevron, indentation,
+ * selection). This file styles the #entity slot BODY rendered per node:
+ * identity row + material/process detail line. */
+
+.C_tab_content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.C_section {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.C_section_header {
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_section_header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.C_hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.C_loading {
+    display: flex;
+    justify-content: center;
+    padding: 3rem 0;
+}
+
+.C_empty {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+/* tree toolbar */
+.C_toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    flex-wrap: wrap;
+}
+
+/* small input for tree search */
+.C_input_sm {
+    max-width: 14rem;
+    flex: 1;
+}
+
+.C_tree {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0 1.25rem 1.25rem;
+}
+
+/* ── #entity slot body (rendered inside forge-tree's C_holder_top) ── */
+
+.C_node_row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    border-radius: 6px;
+    min-height: 2.125rem;
+    font-size: 0.875rem;
+}
+
+.C_node_row:hover {
+    background: var(--hover-bg, rgba(59, 130, 246, 0.06));
+}
+
+.C_node_badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.C_node_badge.t-assembly { background: var(--secondary); }
+.C_node_badge.t-part { background: var(--accent); }
+.C_node_badge.t-fastener { background: var(--success); }
+.C_node_badge.t-quote { background: var(--text-dim); }
+.C_node_badge.t-undefined { background: var(--text-muted); }
+.C_node_badge.t-pipe { background: #d1fae5; color: #059669; }
+.C_node_badge.t-flange { background: #fcd34d; color: #92400e; }
+.C_node_badge.t-fitting { background: #e9eefb; color: #3b82f6; }
+.C_node_badge.t-material { background: #e5e7eb; color: #374151; }
+.C_node_badge.t-unknown { background: #9ca3af; color: #ffffff; }
+
+.C_node_name {
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.C_node_type {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.C_node_tag {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    margin-left: 0.35rem;
+    white-space: nowrap;
+    opacity: 0.7;
+}
+
+.C_qty {
+    background: var(--accent);
+    color: #fff;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.C_qty_one {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+}
+
+.C_boq_id {
+    font-size: 0.65rem;
+    color: var(--secondary, #7c3aed);
+    background: var(--accent-soft, rgba(59,130,246,0.1));
+    border: 1px solid var(--accent, #2563eb);
+    border-radius: 3px;
+    padding: 0 3px;
+    cursor: pointer;
+    margin-left: 0.4rem;
+}
+.C_boq_id:hover {
+    background: var(--accent-soft, rgba(59,130,246,0.2));
+}
+
+.C_node_cost {
+    color: var(--success, #059669);
+    font-size: 0.8125rem;
+    min-width: 5rem;
+    text-align: right;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* per-node detail line: material + process hours */
+.C_node_detail {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0 0.6rem 0.35rem 2.875rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.C_node_mat {
+    color: var(--text-dim);
+}
+
+.C_node_proc {
+    color: var(--secondary, #8b5cf6);
+    font-variant-numeric: tabular-nums;
+}
+
+.C_muted {
+    color: var(--text-muted, #94a3b8);
+    font-style: italic;
+}
+
+/* tree mass chip */
+.C_node_mass {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-left: 0.4rem;
+}
+
+/* tree warning icon (zero-cost / missing material) */
+.C_node_warning {
+    color: var(--error, #ef4444);
+    font-size: 0.8rem;
+    margin-right: 0.2rem;
+    font-weight: bold;
+}
+
+/* tree kind badge (pipe/fitting/flange/material) */
+.C_node_kind {
+    color: var(--text-dim);
+    background: var(--surface-muted, #f1f5f9);
+    padding: 0 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-right: 0.4rem;
+    flex-shrink: 0;
+}
+
+/* ── component child rows (material / process dropdown) ── */
+.C_comp_row {
+    cursor: default;
+    min-height: 1.625rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    border-radius: 4px;
+}
+.C_comp_row:hover {
+    background: transparent;
+}
+.C_comp_icon {
+    flex-shrink: 0;
+    color: var(--secondary, #8b5cf6);
+    font-size: 0.8rem;
+    width: 1rem;
+    text-align: center;
+}
+.C_comp_kind {
+    text-transform: uppercase;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-muted, #94a3b8);
+    min-width: 3.6rem;
+    flex-shrink: 0;
+}
+.C_comp_row .C_node_name {
+    font-weight: 400;
+    font-size: 0.78rem;
+}

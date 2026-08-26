@@ -1,0 +1,78 @@
+<div class="C_tab_content">
+
+    <div v-show="subTab === 'takeoff'">
+    <div class="C_summary_cards">
+        <div class="C_card">
+            <span class="C_card_label">Distinct Materials</span>
+            <span class="C_card_value num">{{ takeoffTotals.distinct || 0 }}</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Total Mass</span>
+            <span class="C_card_value num">{{ Number(takeoffTotals.total_mass_kg || 0).toFixed(1) }} kg</span>
+        </div>
+        <div class="C_card">
+            <span class="C_card_label">Total Material Cost</span>
+            <span class="C_card_value num">{{ fmtMoney(takeoffTotals.total_cost) }}</span>
+        </div>
+    </div>
+
+    <div class="C_section">
+        <div class="C_section_header C_section_header_actions">
+            <h2>Supplier Material Take-off</h2>
+            <div class="C_actions">
+                <forge-button label="Send to Suppliers" @click="openSplitTakeoff" />
+                <forge-button label="Export CSV" cls="ghost" @click="exportTakeoffCsv" />
+                <forge-button label="Export PDF" cls="ghost" @click="exportTakeoffPdf" />
+            </div>
+        </div>
+        <p class="C_hint">Consolidated material quantities (× all assembly quantities) — send to suppliers for costing.</p>
+        <div v-if="takeoffLoading" class="C_loading">
+            <forge-loader variant="dots" label="Building take-off..." />
+        </div>
+        <div v-else-if="!takeoff.length" class="C_empty">
+            <p>No materials found. Add items with materials to this quote first.</p>
+        </div>
+        <div v-else class="C_table_wrap">
+            <!-- Grouped by supplier group: each section is a category a
+                 supplier can quote independently (fasteners, flanges, ...) -->
+            <div v-for="(grp, gi) in takeoffGroups" :key="gi" class="C_takeoff_group">
+                <div class="C_takeoff_group_header">
+                    <span class="C_takeoff_group_name">{{ grp.name }}</span>
+                    <span class="C_takeoff_group_meta">
+                        {{ grp.materials.length }} item{{ grp.materials.length === 1 ? '' : 's' }}
+                        <template v-if="grp.totals.mass"> · {{ Number(grp.totals.mass).toFixed(1) }} kg</template>
+                        <template v-if="grp.totals.m"> · {{ Number(grp.totals.m).toFixed(1) }} m</template>
+                        <template v-if="grp.totals.ea"> · {{ grp.totals.ea }} ea</template>
+                        <span class="C_takeoff_group_cost num">{{ fmtMoney(grp.totals.cost) }}</span>
+                    </span>
+                </div>
+                <table class="C_table C_takeoff_table">
+                    <tbody>
+                        <tr v-for="(m, i) in grp.materials" :key="i">
+                            <td class="C_strong">{{ m.name }}</td>
+                            <td>{{ m.grade }}</td>
+                            <td>{{ m.dims }}</td>
+                            <td>{{ m.unit }}</td>
+                            <td class="C_right num">{{ m.qty }}</td>
+                            <td class="C_right num">{{ fmtMoney(m.unit_cost) }}</td>
+                            <td class="C_right num">{{ fmtMoney(m.extended_cost) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="C_takeoff_total_row">
+                <span class="C_strong">Grand Total ({{ Number(takeoffTotals.total_mass_kg || 0).toFixed(1) }} kg)</span>
+                <span class="C_takeoff_total_cost num">{{ fmtMoney(takeoffTotals.total_cost) }}</span>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <quote-bom v-show="subTab === 'bom'"
+        :entities="entities" :quote="quote" :quote-id="quoteId"
+        @changed="$emit('changed')" />
+
+    <quote-rfq v-show="subTab === 'rfq'"
+        :quote-id="quoteId"
+        @changed="$emit('changed')" @dirty="$emit('dirty')" />
+</div>

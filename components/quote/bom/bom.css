@@ -1,0 +1,61 @@
+/* components/quote/bom — bill of materials tab */
+
+.C_tab_content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.C_section {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.C_section_header {
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_section_header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.C_actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.C_hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.C_strong { font-weight: 600; }
+.C_right { text-align: right; }
+
+
+.C_table_wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-x: auto;
+    padding: 0.5rem 1.25rem 1.25rem;
+}
+
+.C_empty {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-dim);
+}

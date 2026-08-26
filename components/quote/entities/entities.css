@@ -1,0 +1,69 @@
+/* components/quote/entities — add/edit/delete items tab */
+
+.C_tab_content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.C_section {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.C_section_header {
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_section_header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.C_actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.C_hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+
+
+.C_empty {
+    padding: 2rem 1.25rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+/* col_cls styling — C_ prefix scoped to this component by comp.php */
+.C_strong { font-weight: 600; }
+
+/* ── Sortable / filterable entity table (tree hybrid) ── */
+.C_strong { font-weight: 500; }
+.C_desc { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim, #64748b); }
+.C_actions_th { width: 4.5rem; }
+.C_actions_td { white-space: nowrap; text-align: right; }
+.C_count { font-size: 0.7rem; color: var(--text-dim, #64748b); font-weight: 400; }
+
+/* Component-count pill on the Item cell (rendered via forge-table cell slot) */
+.C_comp_count {
+    display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.35rem;
+    font-size: 0.6rem; font-weight: 600; border-radius: 8px;
+    background: var(--accent-soft, rgba(37, 99, 235, 0.1)); color: var(--accent, #2563eb);
+    vertical-align: 1px;
+}

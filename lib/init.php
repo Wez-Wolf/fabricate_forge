@@ -67,7 +67,20 @@ echo "  var _ks = []; for (var i = 0; i < localStorage.length; i++) { var k = lo
 echo "  for (var j = 0; j < _ks.length; j++) localStorage.removeItem(_ks[j]);";
 echo "  if (typeof LOADED !== 'undefined') { for (var k in LOADED) delete LOADED[k]; }";
 echo "  LS.set('svg_clear_v1', '1');";
+
 echo "}";  echo PHP_EOL;
+
+// ── DDP Real-time Client Initialization ────────────
+// Initialize the DDP client for pub/sub.
+// This must live OUTSIDE the SVG-cache if{} block so it runs on every load.
+// DDP endpoint/token are injected from the PHP environment (getenv) — the
+// browser has no `process.env`, so we must NOT reference it in client JS.
+$ddpEndpoint = getenv('DDP_ENDPOINT');
+$ddpToken = getenv('DDP_TOKEN');
+echo "window.DDP_ENDPOINT = " . json_encode($ddpEndpoint ?: null) . ";";
+echo "window.DDP_TOKEN = " . json_encode($ddpToken ?: '') . ";";
+echo "window.DDP = window.DDP || {}; window.DDP.subscribe = function(t,c) { var d = window.DDP || {}; return d.subscribe ? d.subscribe(t,c) : null; }; window.DDP.publish = function(t,d) { var ddp = window.DDP || {}; if (ddp.publish) ddp.publish(t,d); };";
+
 
 // ── Forge comp registry + root app ─────────────────────────
 // Emits comp.js (defines COMP + registered base), which calls COMP.initMain()
@@ -136,16 +149,23 @@ echo <<<'JS'
       return;
     }
     // Quote detail deep-link: /nav/quotes/<id> or /nav/quotes/<id>/<tab>.
-    // forge's processPath would pass only parts[1] ('quotes') as tab_url,
-    // which flips forge-nav onto the quotes tab and its onMenu clobbers the
-    // URL to /nav/quotes (the list) before nav.resolveRoute can mount
-    // quote-view — the dashboard→quote click landing on the list. Pass the
-    // FULL 'quotes/<id>[/<tab>]' as tab_url so forge-nav navigates to the
-    // deep URL, and resolveRoute mounts quote-view from it.
-    if (authed && parts.length >= 3 && parts[0] === 'nav' && parts[1] === 'quotes') {
-      MAIN.setComp(MAIN._startComp, { tab_url: parts.slice(1).join('/') });
-      return;
-    }
+    // Forge's OWN multi-segment branch (via _pp, below) already handles this
+    // correctly: it sets
+    //     this.comp     = _startComp;   // 'nav'
+    //     this.props     = { default_tab, tab_url: parts[1] }   // tab_url = 'quotes'
+    // WITHOUT navigating. That mounts the nav shell on the clean 'quotes' tab
+    // (so forge-nav never sees the slashed 'quotes/<id>' tag and never crashes
+    // with "Invalid component name") AND it preserves the <id> in the URL.
+    // nav.js resolveRoute() then reads the full ['nav','quotes','<id>'] path
+    // from ROUTER.decodePath() (300ms deferred, past forge-nav's tabUrl
+    // watcher) and mounts the quote-view page via
+    // forge-nav.setPage('quote-view', { tab_url: 'quotes/<id>' }).
+    //
+    // Do NOT special-case this with MAIN.setComp(_startComp, {tab_url:'quotes'}):
+    // because _startComp === 'nav', setComp runs ROUTER.navigate('/nav/quotes'),
+    // which — since /nav/quotes is the home path — does a replaceState that
+    // STRIPS the <id> from the URL before resolveRoute runs, so quote-view
+    // never mounts. Letting _pp handle it keeps the URL intact.
     if (_pp) _pp(parts);
   };
 
@@ -158,5 +178,171 @@ echo <<<'JS'
     MAIN.processPath(ROUTER.decodePath());
   }
 })();
+JS;
+echo PHP_EOL;
+
+// ── Shared app helpers (FAB) ────────────────────────────────
+// Single implementation of the tiny format/escape helpers that used to be
+// copy-pasted into ~20 components. Components reference them via thin
+// delegates (this.esc / this.fmt / this.fmtMoney) so call sites stay put.
+// Registered on window like FAB_EDIT_MIXIN so comp.php-loaded components
+// can use them.
+echo <<<'JS'
+window.FAB = window.FAB || {};
+FAB.esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+};
+FAB.fmtMoney = function (v, currency) {
+    try {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(parseFloat(v || 0));
+    } catch (e) {
+        return String(v || 0);
+    }
+};
+JS;
+echo PHP_EOL;
+
+// ── Shared quote-edit mixin (FAB_EDIT_MIXIN) ─────────────────
+// ONE save orchestration for every edit surface (Entities tab, Tree tab,
+// and any future edit surface). Registered on window so comp.php-loaded
+// components can mix it in. Self-loading tabs hook a post-save refresh via
+// afterSave() (tree tab → loadTree); shell-driven tabs refresh via the
+// 'changed' event + entities prop and define no afterSave.
+echo <<<'JS'
+window.FAB_EDIT_MIXIN = {
+    data() {
+        return {
+            processTrades: ['boilermaking', 'welding', 'machining', 'painting', 'assembly', 'qualityControl', 'surfaceTreatment', 'cutting', 'drilling', 'grinding', 'bending'],
+        };
+    },
+    methods: {
+        // quote currency (falls back to USD)
+        currency() {
+            return (this.quote && this.quote.data && this.quote.data.currency) || 'USD';
+        },
+        fmtMoney(v) {
+            return FAB.fmtMoney(v, this.currency());
+        },
+        findComponent(entity, type) {
+            var comps = (entity && entity.components) || [];
+            for (var i = 0; i < comps.length; i++) {
+                if (comps[i].type === type) return comps[i];
+            }
+            return null;
+        },
+        toNumOrNull(v) {
+            if (v === '' || v == null) return null;
+            var n = parseFloat(v);
+            return isNaN(n) ? null : n;
+        },
+        async saveEntity(entity, mat, proc, form) {
+            try {
+                // 1. Entity columns — name/type. Global BoQ qty is DRIVEN by the
+                //    links (not editable here), so we don't overwrite it.
+                await WEB.api('./api/entities.php', {
+                    action: 'update',
+                    input: {
+                        id: entity.id,
+                        type: form.type,
+                        name: form.name,
+                    }
+                });
+
+                // Assemblies are containers — costs roll up from their children,
+                // so they never carry their own material/paint/process data.
+                var isAssembly = form.type === 'assembly';
+
+                // 2. Material component (non-assemblies only) — incl. material variables
+                if (!isAssembly) {
+                    var matData = {
+                        materialLibraryId: form.material_id || null,
+                        length: this.toNumOrNull(form.length),
+                        // D1 green — extra length priced into material cost
+                        length_secondary: this.toNumOrNull(form.length_secondary),
+                        width: this.toNumOrNull(form.width),
+                        thickness: this.toNumOrNull(form.thickness),
+                        buttWeldQty: form.buttWeldQty != null && form.buttWeldQty !== '' ? parseInt(form.buttWeldQty, 10) : null,
+                        costPerM: form.costPerM != null && form.costPerM !== '' ? parseFloat(form.costPerM) : null,
+                        costPerEa: form.costPerEa != null && form.costPerEa !== '' ? parseFloat(form.costPerEa) : null,
+                        shopHrsPerKg: form.shopHrsPerKg != null && form.shopHrsPerKg !== '' ? parseFloat(form.shopHrsPerKg) : null,
+                        pipeWt: form.pipeWt != null && form.pipeWt !== '' ? parseFloat(form.pipeWt) : null,
+                        weldSize: form.weldSize != null && form.weldSize !== '' ? parseFloat(form.weldSize) : null,
+                        weldType: form.weldType || null,
+                    };
+                    if (mat) {
+                        await WEB.api('./api/components.php', { action: 'update', input: { id: mat.id, data: matData } });
+                    } else if (form.material_id || form.length || form.width || form.thickness) {
+                        await WEB.api('./api/components.php', {
+                            action: 'create',
+                            input: { entity_id: entity.id, type: 'material', data: matData }
+                        });
+                    }
+
+                    // 2b. Paint & lining options (in-house/sub-contract) → entity.data.onCosts.painting
+                    var painting = {};
+                    ['extPaint', 'intPaint', 'line', 'coating1', 'coating2', 'coating3', 'coating4', 'transportPerTon'].forEach(function (k) {
+                        var v = parseFloat(form.painting && form.painting[k]);
+                        painting[k] = isNaN(v) ? 0 : v;
+                    });
+                    painting.mode = (form.painting && form.painting.mode === 'subcontract') ? 'subcontract' : 'inhouse';
+                    var curOnCosts = (entity.data && entity.data.onCosts) || {};
+                    var data = { onCosts: Object.assign({}, curOnCosts, { painting: painting }) };
+                    await WEB.api('./api/entities.php', { action: 'update', input: { id: entity.id, data: data } });
+                }
+
+                // 3. Process component — ALL entity types incl. assemblies
+                //    (D3: a spool assembly carries its own welding process comps;
+                //    only MATERIAL stays parts/fittings/fasteners-only).
+                {
+                    var ops = (form.process_ops && Array.isArray(form.process_ops))
+                        ? form.process_ops.filter(function (o) { return (parseFloat(o.hours) || 0) > 0 && o.category; })
+                        : [];
+                    var procData = {
+                        ops: ops.map(function (o) {
+                            return { category: o.category, hours: parseFloat(o.hours) || 0, summary: (o.summary || '').trim() };
+                        }),
+                        note: (form.process_note || '').trim(),
+                    };
+                    // Also keep the flattened hours map (for legacy reads not yet
+                    // on the ops-aware extractItems path).
+                    var flat = {};
+                    ops.forEach(function (o) { flat[o.category] = (parseFloat(o.hours) || 0) + (flat[o.category] || 0); });
+                    Object.assign(procData, flat);
+                    if (proc) {
+                        await WEB.api('./api/components.php', { action: 'update', input: { id: proc.id, data: procData } });
+                    } else if (ops.length || form.process_note) {
+                        await WEB.api('./api/components.php', {
+                            action: 'create',
+                            input: { entity_id: entity.id, type: 'process', data: procData }
+                        });
+                    }
+                }
+
+                // 4. Link quantity: if the row is inside a parent (has a
+                //    contains-link), update that parent's link.quantity.
+                if (form.link_id && form.link_qty != null && form.link_qty !== '') {
+                    var lq = parseFloat(form.link_qty);
+                    await WEB.api('./api/links.php', {
+                        action: 'update',
+                        input: { id: form.link_id, quantity: isNaN(lq) ? 0 : lq }
+                    });
+                }
+
+                await WEB.api('./api/systems.php', {
+                    action: 'recalculate_entity',
+                    input: { entity_id: this.quoteId }
+                });
+                this.$emit('changed');
+                // Self-loading tabs refresh their own data (tree).
+                if (typeof this.afterSave === 'function') this.afterSave();
+                TOAST.show('Item saved — recalculating', 'success');
+            } catch (e) {
+                TOAST.show(e.message || 'Failed to save item', 'error');
+            }
+        },
+    },
+};
 JS;
 echo PHP_EOL;

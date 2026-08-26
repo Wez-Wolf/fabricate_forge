@@ -20,16 +20,6 @@ class auth extends \forge\api\Auth
     {
         // Delegate to forge Auth's user/auth table creation
         parent::buildTable();
-        $this->pgCrud->execute(<<<'SQL'
-CREATE TABLE IF NOT EXISTS user_prefs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL UNIQUE REFERENCES "user"(id) ON DELETE CASCADE,
-    data JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-)
-SQL);
-        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_up_user ON user_prefs(user_id)');
 
         // Password reset tokens (single-use, expiring).
         $this->pgCrud->execute(<<<'SQL'
@@ -62,6 +52,28 @@ SQL);
             ]];
         }
         return $res; // error passthrough
+    }
+
+    /**
+     * LOCAL/DEV EXEMPTION for the always-on login/signup IP rate limit.
+     *
+     * forge\Auth::handle_login calls checkAuthRateLimit(5, 900) keyed on
+     * REMOTE_ADDR (file bucket authrate_<ip>.tmp). On a local `php -S` dev server
+     * every test login shares 127.0.0.1, so ~5 phases exhaust the bucket and
+     * later logins 429. Bypass the tally for loopback — real external IPs still
+     * get the 5/900 brute-force protection from parent.
+     *
+     * Future refinement: key the limiter on auth_id (the key returned by the
+     * first auth) once issued, so an authenticated session is rate-independent
+     * of IP. Not needed for local dev once loopback is exempted.
+     */
+    protected function checkAuthRateLimit($max = 5, $window = 900)
+    {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        if (in_array($ip, ['127.0.0.1', '::1'], true)) {
+            return true;   // loopback: never tally, never block
+        }
+        return parent::checkAuthRateLimit($max, $window);
     }
 
     /**

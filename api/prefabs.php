@@ -188,19 +188,30 @@ SQL);
             return ['error' => 'assembly-not-found', 'error_code' => 404];
         }
 
-        // Gather all quote entities into template items (id, type, name, quantity)
+        // Gather all quote entities into template items (id, type, name, quantity).
+        // D5: quantity lives on contains-LINKS — read each item's inbound link qty
+        // (qty in its parent), not the (always-singular) entity row.
         $items = [];
         $res = $this->pgCrud->read([
             'table' => 'entity',
             'where' => 'quote_id = $1 AND user_id_owner = $2 AND is_active = TRUE',
             'params' => [$quoteId, $this->effOwnerId()],
         ]);
+        $linkRes = $this->pgCrud->read([
+            'table' => 'link',
+            'where' => 'type = $1 AND user_id_owner = $2 AND to_id = ANY($3::uuid[])',
+            'params' => ['contains', $this->effOwnerId(), '{' . implode(',', array_column($res['data'] ?? [], 'id')) . '}'],
+        ]);
+        $linkQty = [];
+        foreach (($linkRes['data'] ?? []) as $l) {
+            $linkQty[$l['to_id']] = (float)($l['quantity'] ?? 1);
+        }
         foreach (($res['data'] ?? []) as $it) {
             $items[] = [
                 'id' => $it['id'],
                 'type' => $it['type'] ?? 'assembly',
                 'name' => $it['name'] ?? 'Item',
-                'quantity' => (float)($it['quantity'] ?? 1),
+                'quantity' => $linkQty[$it['id']] ?? 1,
             ];
         }
 
@@ -302,7 +313,7 @@ SQL);
         try {
             $systems = new \api\systems();
             $systems->user_id = $this->effOwnerId();
-            $recalc = $systems->handle_recalculate_quote(['quote_id' => $quoteId]);
+            $recalc = $systems->handle_recalculate_entity(['entity_id' => $quoteId]);
         } catch (\Throwable $e) {
             $recalc = ['error' => 'recalc failed (non-fatal): ' . $e->getMessage()];
         }
@@ -325,7 +336,7 @@ SQL);
                 'type' => $data['type'],
                 'name' => $data['name'],
                 'quote_id' => $data['quote_id'],
-                'quantity' => $data['quantity'] ?? 1,
+                'quantity' => 1, // D5: entities are singular — template qty rides the contains-link
                 'data' => $data['data'] ?? [],
                 'user_id_owner' => $this->effOwnerId(),
             ],

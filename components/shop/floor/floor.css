@@ -1,0 +1,109 @@
+/* shop-floor — consolidated manufacturing workflow (Orders | Procurement | Production) */
+
+.C_main {
+    width: 100%;
+    padding: 1.25rem;
+}
+
+.C_section {
+    margin-bottom: 1.5rem;
+}
+
+.C_section_header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.C_section_header_actions h2 {
+    margin: 0;
+}
+
+.C_actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.C_table_wrap {
+    overflow-x: auto;
+}
+
+.C_table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.C_table th, .C_table td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.C_table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+}
+
+.C_right {
+    text-align: right;
+}
+
+.num {
+    font-variant-numeric: tabular-nums;
+}
+
+.C_strong {
+    font-weight: 600;
+    color: var(--text, #111827);
+}
+
+.C_link {
+    color: var(--color-primary, #3b82f6);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 0.8rem;
+    padding: 0 0.3rem;
+}
+
+.C_link:hover {
+    text-decoration: underline;
+}
+
+.C_loading {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.C_empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-pill.draft { background: #f3f4f6; color: #374151; }
+.status-pill.submitted { background: #dbeafe; color: #1d4ed8; }
+.status-pill.approved { background: #dcfce7; color: #15803d; }
+.status-pill.invoiced { background: #f0fdf4; color: #15803d; }
+.status-pill.rejected { background: #fee2e2; color: #b91c1c; }
+.status-pill.pending { background: #fef3c7; color: #92400e; }
+
+.C_green { color: var(--success, #059669); }
+.C_red { color: var(--error, #ef4444); }

@@ -1,0 +1,20 @@
+<div class="C_tab_content">
+    <div class="C_section">
+        <div class="C_section_header C_section_header_actions">
+            <h2>Bill of Materials</h2>
+            <div class="C_actions">
+                <forge-button label="Import BOM" @click="openBomImport" />
+            </div>
+        </div>
+        <p class="C_hint">Paste a spreadsheet of lines to build the quote structure — materials, quantities, dims and process hours. Edit individual items on the Entities tab.</p>
+        <div v-if="!entities.length" class="C_empty">
+            <p>No items on this quote yet. Import a BOM below.</p>
+        </div>
+        <div v-else class="C_table_wrap">
+            <forge-list
+                :fields="fields"
+                :value="rows"
+            />
+        </div>
+    </div>
+</div>

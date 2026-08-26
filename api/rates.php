@@ -35,17 +35,6 @@ class rates extends Base
     protected function buildTable()
     {
         $this->ensureEcsTables();
-        // company_settings: single row per user holding defaultRates etc.
-        $this->pgCrud->execute(<<<'SQL'
-CREATE TABLE IF NOT EXISTS company_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id_owner UUID NOT NULL UNIQUE,
-    data JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-)
-SQL);
-        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_cs_owner ON company_settings(user_id_owner)');
     }
 
     // ── Reads ──────────────────────────────────────────

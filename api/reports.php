@@ -2,8 +2,7 @@
 /**
  * fabricate_forge/api/reports.php
  *
- * Reports & analytics — ported from the original app's reports.js methods.
- * Owner-scoped aggregates over the quote book:
+ * Reports & analytics — owner-scoped aggregates over the quote book:
  *
  *   cost_by_client    — quote totals grouped by client
  *   quote_funnel      — status counts (draft/submitted/approved/invoiced/lost)
@@ -15,6 +14,7 @@ namespace api;
 
 include_once(__DIR__ . "/_base.php");
 include_once(__DIR__ . "/rates.php");
+include_once(__DIR__ . "/cost.php");
 
 class reports extends Base
 {
@@ -41,8 +41,11 @@ class reports extends Base
 
     private function quoteTotal($quote)
     {
-        $comps = $this->getComponents($quote['id'], 'cost');
-        return (float)($comps[0]['data']['total'] ?? 0);
+        $costApi = new \api\cost();
+        $costApi->user_id = $this->effOwnerId();
+        $cost = $costApi->handle_get_cost(['entity_id' => $quote['id']]);
+        if (isset($cost['error'])) return 0.0;
+        return (float)($cost['total'] ?? 0);
     }
 
     private function quoteMargin($quote, $defaultMarkup)

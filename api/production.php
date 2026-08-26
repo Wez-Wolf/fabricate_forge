@@ -185,8 +185,6 @@ SQL);
             'variance' => self::r2($totalAct - $totalEst),
         ];
     }
-
-    private static function r2($v) { return round((float)$v, 2); }
 }
 
 \api\dispatchIfEntry(__FILE__);

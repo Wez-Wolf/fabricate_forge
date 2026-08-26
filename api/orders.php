@@ -2,8 +2,7 @@
 /**
  * fabricate_forge/api/orders.php
  *
- * Order management — ported from the original app's orders.js method file.
- * Orders track quote-to-delivery progress: draft → sent → won → order →
+ * Order management — orders track quote-to-delivery progress: draft → sent → won → order →
  * in-progress → complete (or lost). Owner-scoped.
  *
  * Actions:

@@ -7,7 +7,6 @@
                 <tr>
                     <th style="width: 34%">Item Name</th>
                     <th style="width: 110px">Type</th>
-                    <th style="width: 70px">Qty</th>
                     <th style="width: 34%">Description</th>
                     <th style="width: 30px"></th>
                 </tr>
@@ -21,9 +20,6 @@
                         <select v-model="r.type" class="C_input">
                             <option v-for="t in types" :key="t.v" :value="t.v">{{ t.label }}</option>
                         </select>
-                    </td>
-                    <td>
-                        <input v-model.number="r.quantity" type="number" min="1" class="C_input" />
                     </td>
                     <td>
                         <input v-model="r.description" type="text" class="C_input" placeholder="optional" />

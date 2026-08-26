@@ -1,162 +1,215 @@
 <div class="C_main">
-    <div class="C_field">
-        <label class="C_label">Item Name <span class="C_req">*</span></label>
-        <input v-model="form.name" type="text" class="C_input" placeholder="e.g. Pipe spool 6 m DN100" />
-    </div>
+    <forge-tabs :tabs="tabs" :value="activeTab" @input="onTab" />
 
-    <div class="C_field_row">
+    <!-- ══ Tab: Detail (name / type / read-only global qty) ══ -->
+    <div v-if="activeTab === 'detail'" class="C_tab">
         <div class="C_field">
-            <label class="C_label">Type</label>
-            <select v-model="form.type" class="C_input">
-                <option v-for="t in typeOptions" :key="t.v" :value="t.v">{{ t.label }}</option>
-            </select>
-        </div>
-        <div class="C_field">
-            <label class="C_label">Quantity</label>
-            <input v-model.number="form.quantity" type="number" min="1" class="C_input" />
-        </div>
-    </div>
-
-    <p v-if="isAssembly" class="C_hint">Assembly — costs roll up from its child items. Materials, paint and process hours belong on the parts beneath it.</p>
-
-    <!-- ── Material section: parts/fasteners + material-only items (never assemblies) ── -->
-    <template v-if="showMaterial">
-        <div class="C_section_label">Material</div>
-        <div class="C_field">
-            <label class="C_label">Material</label>
-            <material-select v-model="form.material_id" @input="onMaterialPick" />
+            <label class="C_label">Item Name <span class="C_req">*</span></label>
+            <input v-model="form.name" type="text" class="C_input" placeholder="e.g. Pipe spool 6 m DN100" />
         </div>
 
         <div class="C_field_row">
             <div class="C_field">
-                <label class="C_label">Length (mm)</label>
-                <input v-model="form.length" type="number" step="0.1" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Width (mm)</label>
-                <input v-model="form.width" type="number" step="0.1" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Thickness (mm)</label>
-                <input v-model="form.thickness" type="number" step="0.1" class="C_input" />
-            </div>
-        </div>
-
-        <!-- Derived mass: the part's mass comes from its material + dims -->
-        <p class="C_hint">Mass: <strong>{{ massPreview }}</strong> <template v-if="massPreview !== '—'">(derived from material × dimensions)</template></p>
-
-        <!-- ── Material variables (kind-aware: pipe / flange / fitting) ── -->
-        <div v-if="kind === 'pipe'" class="C_section_label">Pipe Variables</div>
-        <div v-if="kind === 'pipe'" class="C_field_row">
-            <div class="C_field">
-                <label class="C_label">Butt Weld Qty</label>
-                <input v-model.number="form.buttWeldQty" type="number" min="0" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Cost R/m</label>
-                <input v-model.number="form.costPerM" type="number" step="0.01" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Shop Handling (BM hrs/kg)</label>
-                <input v-model.number="form.shopHrsPerKg" type="number" step="0.001" min="0" class="C_input" />
-            </div>
-        </div>
-
-        <div v-if="kind === 'flange'" class="C_section_label">Flange Variables</div>
-        <div v-if="kind === 'flange'" class="C_field_row">
-            <div class="C_field">
-                <label class="C_label">Weld Type</label>
-                <select v-model="form.weldType" class="C_input">
-                    <option value="">Auto (library)</option>
-                    <option value="WN">WN — weld neck (butt weld)</option>
-                    <option value="SO">SO — slip-on (2 fillet welds)</option>
-                    <option value="SW">SW — socket weld (1 fillet)</option>
-                    <option value="BLIND">BLIND — bolted (no weld)</option>
-                    <option value="LOOSE">LOOSE — bolted loose (no weld)</option>
+                <label class="C_label">Type</label>
+                <select v-model="form.type" class="C_input">
+                    <option v-for="t in typeOptions" :key="t.v" :value="t.v">{{ t.label }}</option>
                 </select>
             </div>
             <div class="C_field">
-                <label class="C_label">Pipe WT fitted to (mm)</label>
-                <input v-model.number="form.pipeWt" type="number" step="0.01" min="0" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Cost R/ea</label>
-                <input v-model.number="form.costPerEa" type="number" step="0.01" class="C_input" />
+                <label class="C_label">Quantity</label>
+                <input value="1" type="text" class="C_input C_readonly" readonly title="An entity is ONE unique item. Quantity lives on the link to its parent — edit it on the Link tab or in the tree." />
             </div>
         </div>
 
-        <div v-if="kind === 'fitting'" class="C_section_label">Fitting Variables</div>
-        <div v-if="kind === 'fitting'" class="C_field_row">
-            <div class="C_field">
-                <label class="C_label">Cost R/ea</label>
-                <input v-model.number="form.costPerEa" type="number" step="0.01" class="C_input" />
+        <p v-if="isAssembly" class="C_hint">Assembly — costs roll up from its child items (Tree tab). Its own welding/finishing work goes on the Process tab; child quantities are set on each item's Link tab.</p>
+        <p v-else class="C_hint">This is one unique item (quantity 1). How many of it go into a parent assembly is set on the Link tab / in the tree — that's where quantity belongs.</p>
+    </div>
+
+    <!-- ══ Tab: Link (single parent + per-parent quantity, editable) ══ -->
+    <div v-if="activeTab === 'link'" class="C_tab">
+        <div class="C_section_card">
+            <div class="C_section_label">Parent assembly</div>
+            <div class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">This item is linked into</label>
+                    <input :value="parent_name || '—'" type="text" class="C_input C_readonly" readonly />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Quantity in {{ parent_name || 'this parent' }}</label>
+                    <input :value="linkQty" type="number" min="0" step="1" class="C_input" @input="setLinkQty($event.target.value)" />
+                </div>
             </div>
+            <p v-if="!link_id" class="C_hint">Top-level item (not inside an assembly) — it appears once on the quote. Link quantity applies when it sits inside a parent.</p>
+            <p v-else class="C_hint">This quantity applies to {{ parent_name || 'the parent' }} only. Changing it updates the link, so the tree and costs for that parent stay correct without affecting other parents.</p>
         </div>
+    </div>
 
-        <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field">
-            <label class="C_label">Weld Size override (mm) — blank = auto (next size up from WT)</label>
-            <input v-model.number="form.weldSize" type="number" step="0.5" min="0" class="C_input" />
-        </div>
-
-        <!-- ── Paint & Lining (R/m²) with in-house / sub-contract ── -->
-        <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_section_label">Paint &amp; Lining (R/m²)</div>
-        <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field_row">
+    <!-- ══ Tab: Material &amp; Paint ══ -->
+    <div v-if="activeTab === 'material'" class="C_tab">
+        <template v-if="showMaterial">
+            <div class="C_section_label">Material</div>
             <div class="C_field">
-                <label class="C_label">Execution</label>
-                <select v-model="form.painting.mode" class="C_input">
-                    <option value="inhouse">In-house</option>
-                    <option value="subcontract">Sub-contract</option>
+                <label class="C_label">Material</label>
+                <material-select v-model="form.material_id" @input="onMaterialPick" />
+            </div>
+
+            <div class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Length (mm)</label>
+                    <input v-model.number="form.length" type="number" step="0.1" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label" title="Extra length on top of the cut length (e.g. D1 green) — added into material cost">Extra / green length (mm)</label>
+                    <input v-model.number="form.length_secondary" type="number" step="0.1" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Width (mm)</label>
+                    <input v-model.number="form.width" type="number" step="0.1" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Thickness (mm)</label>
+                    <input v-model.number="form.thickness" type="number" step="0.1" class="C_input" />
+                </div>
+            </div>
+
+            <!-- Derived mass -->
+            <p class="C_hint">Mass: <strong>{{ massPreview }}</strong> <template v-if="massPreview !== '—'">(derived from material × dimensions)</template></p>
+
+            <!-- Material variables (kind-aware) -->
+            <div v-if="kind === 'pipe'" class="C_section_label">Pipe Variables</div>
+            <div v-if="kind === 'pipe'" class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Butt Weld Qty</label>
+                    <input v-model.number="form.buttWeldQty" type="number" min="0" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Cost R/m</label>
+                    <input v-model.number="form.costPerM" type="number" step="0.01" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Shop Handling (BM hrs/kg)</label>
+                    <input v-model.number="form.shopHrsPerKg" type="number" step="0.001" min="0" class="C_input" />
+                </div>
+            </div>
+
+            <div v-if="kind === 'flange'" class="C_section_label">Flange Variables</div>
+            <div v-if="kind === 'flange'" class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Weld Type</label>
+                    <select v-model="form.weldType" class="C_input">
+                        <option value="">Auto (library)</option>
+                        <option value="WN">WN — weld neck (butt weld)</option>
+                        <option value="SO">SO — slip-on (2 fillet welds)</option>
+                        <option value="SW">SW — socket weld (1 fillet)</option>
+                        <option value="BLIND">BLIND — bolted (no weld)</option>
+                        <option value="LOOSE">LOOSE — bolted loose (no weld)</option>
+                    </select>
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Pipe WT fitted to (mm)</label>
+                    <input v-model.number="form.pipeWt" type="number" step="0.01" min="0" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Cost R/ea</label>
+                    <input v-model.number="form.costPerEa" type="number" step="0.01" class="C_input" />
+                </div>
+            </div>
+
+            <div v-if="kind === 'fitting'" class="C_section_label">Fitting Variables</div>
+            <div v-if="kind === 'fitting'" class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Cost R/ea</label>
+                    <input v-model.number="form.costPerEa" type="number" step="0.01" class="C_input" />
+                </div>
+            </div>
+
+            <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field">
+                <label class="C_label">Weld Size override (mm) — blank = auto (next size up from WT)</label>
+                <input v-model.number="form.weldSize" type="number" step="0.5" min="0" class="C_input" />
+            </div>
+
+            <!-- ── Paint & Lining ── -->
+            <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_section_label">Paint &amp; Lining (R/m²)</div>
+            <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Execution</label>
+                    <select v-model="form.painting.mode" class="C_input">
+                        <option value="inhouse">In-house</option>
+                        <option value="subcontract">Sub-contract</option>
+                    </select>
+                </div>
+                <div class="C_field">
+                    <label class="C_label">External paint R/m²</label>
+                    <input v-model.number="form.painting.extPaint" type="number" step="0.01" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Internal paint R/m²</label>
+                    <input v-model.number="form.painting.intPaint" type="number" step="0.01" class="C_input" />
+                </div>
+            </div>
+            <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Internal line R/m²</label>
+                    <input v-model.number="form.painting.line" type="number" step="0.01" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Coating 1 R/m²</label>
+                    <input v-model.number="form.painting.coating1" type="number" step="0.01" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Coating 2 R/m²</label>
+                    <input v-model.number="form.painting.coating2" type="number" step="0.01" class="C_input" />
+                </div>
+            </div>
+            <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field_row">
+                <div class="C_field">
+                    <label class="C_label">Coating 3 R/m²</label>
+                    <input v-model.number="form.painting.coating3" type="number" step="0.01" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Coating 4 R/m²</label>
+                    <input v-model.number="form.painting.coating4" type="number" step="0.01" class="C_input" />
+                </div>
+                <div class="C_field">
+                    <label class="C_label">Transport R/ton</label>
+                    <input v-model.number="form.painting.transportPerTon" type="number" step="0.01" class="C_input" />
+                </div>
+            </div>
+        </template>
+        <p v-else class="C_hint">No material section ({{ isAssembly ? 'assembly — materials live on its child parts' : 'this item type has no material library' }}).</p>
+    </div>
+
+    <!-- ══ Tab: Process (note + buildable ops list) ══ -->
+    <div v-if="activeTab === 'process'" class="C_tab">
+        <template v-if="showProcess || !isAssembly">
+            <div class="C_section_label">Process description</div>
+            <div class="C_field">
+                <label class="C_label">Free-text note</label>
+                <textarea v-model="form.process_note" class="C_input C_textarea" rows="2" placeholder="e.g. Fit-up and weld 2 SO flanges to pipe ends"></textarea>
+            </div>
+
+            <div class="C_section_header_actions">
+                <div class="C_section_label">Operations</div>
+                <button class="C_add_op" type="button" @click="addOp">+ Add operation</button>
+            </div>
+
+            <div v-for="(op, i) in process_ops" :key="i" class="C_op_row">
+                <select class="C_input C_op_cat" :value="op.category" @change="onOpCategory(i, $event.target.value)">
+                    <option v-for="t in trades" :key="t" :value="t">{{ tradeLabel(t) }}</option>
                 </select>
+                <input v-model.number="op.hours" type="number" step="0.05" min="0" class="C_input C_op_hrs" placeholder="hrs" title="Hours" />
+                <input v-model="op.summary" type="text" class="C_input C_op_summary" placeholder="What happens — e.g. Fit-up the flange to the pipe" />
+                <button class="C_op_del" type="button" @click="removeOp(i)" title="Remove">×</button>
             </div>
-            <div class="C_field">
-                <label class="C_label">External paint R/m²</label>
-                <input v-model.number="form.painting.extPaint" type="number" step="0.01" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Internal paint R/m²</label>
-                <input v-model.number="form.painting.intPaint" type="number" step="0.01" class="C_input" />
-            </div>
-        </div>
-        <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field_row">
-            <div class="C_field">
-                <label class="C_label">Internal line R/m²</label>
-                <input v-model.number="form.painting.line" type="number" step="0.01" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Coating 1 R/m²</label>
-                <input v-model.number="form.painting.coating1" type="number" step="0.01" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Coating 2 R/m²</label>
-                <input v-model.number="form.painting.coating2" type="number" step="0.01" class="C_input" />
-            </div>
-        </div>
-        <div v-if="kind === 'pipe' || kind === 'flange' || kind === 'fitting'" class="C_field_row">
-            <div class="C_field">
-                <label class="C_label">Coating 3 R/m²</label>
-                <input v-model.number="form.painting.coating3" type="number" step="0.01" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Coating 4 R/m²</label>
-                <input v-model.number="form.painting.coating4" type="number" step="0.01" class="C_input" />
-            </div>
-            <div class="C_field">
-                <label class="C_label">Transport R/ton</label>
-                <input v-model.number="form.painting.transportPerTon" type="number" step="0.01" class="C_input" />
-            </div>
-        </div>
-    </template>
 
-    <!-- ── Process section: parts/fasteners + process-only items (never assemblies) ── -->
-    <template v-if="showProcess">
-        <div class="C_section_label">Process Hours</div>
-        <div class="C_hours_grid">
-            <div v-for="t in trades" :key="t" class="C_field">
-                <label class="C_label">{{ tradeLabel(t) }}</label>
-                <input v-model="form.hours[t]" type="number" step="0.5" min="0" class="C_input" />
+            <!-- Derived readable process statement -->
+            <div v-if="process_ops.length" class="C_process_stmt">
+                <div class="C_section_label">Statement</div>
+                <p class="C_stmt">{{ processStatement }}</p>
             </div>
-        </div>
-    </template>
+        </template>
+        <p v-else class="C_hint">No process section ({{ isAssembly ? 'assembly — process hours belong on its child parts' : 'this item type has no process' }}).</p>
+    </div>
 
     <div class="C_actions">
         <forge-button label="Save Item" @click="submit" />

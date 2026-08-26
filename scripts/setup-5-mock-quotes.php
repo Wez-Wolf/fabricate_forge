@@ -124,7 +124,7 @@ $links->handle_create(['from_id' => $a1Id, 'to_id' => $p2, 'type' => 'contains',
 $links->handle_create(['from_id' => $q1Id, 'to_id' => $a1Id, 'type' => 'contains', 'quantity' => 1]);
 echo "Created Links\n";
 
-$r1 = $systems->handle_load_quote(['quote_id' => $q1Id]);
+$r1 = $systems->handle_recalculate_entity(['entity_id' => $q1Id]);
 $total1 = isset($r1['total_cost']) ? $r1['total_cost'] : 0;
 echo "Q-001 Total: $" . number_format($total1, 2) . "\n\n";
 
@@ -145,7 +145,7 @@ $links->handle_create(['from_id' => $a2Id, 'to_id' => $pMain, 'type' => 'contain
 $links->handle_create(['from_id' => $a2Id, 'to_id' => $pElbows, 'type' => 'contains', 'quantity' => 6]);
 $links->handle_create(['from_id' => $q2Id, 'to_id' => $a2Id, 'type' => 'contains', 'quantity' => 1]);
 
-$r2 = $systems->handle_load_quote(['quote_id' => $q2Id]);
+$r2 = $systems->handle_recalculate_entity(['entity_id' => $q2Id]);
 $total2 = isset($r2['total_cost']) ? $r2['total_cost'] : 0;
 echo "Q-002 Total: $" . number_format($total2, 2) . "\n\n";
 
@@ -165,7 +165,7 @@ $links->handle_create(['from_id' => $a3Id, 'to_id' => $pShaft, 'type' => 'contai
 $links->handle_create(['from_id' => $a3Id, 'to_id' => $pPlates, 'type' => 'contains', 'quantity' => 4]);
 $links->handle_create(['from_id' => $q3Id, 'to_id' => $a3Id, 'type' => 'contains', 'quantity' => 1]);
 
-$r3 = $systems->handle_load_quote(['quote_id' => $q3Id]);
+$r3 = $systems->handle_recalculate_entity(['entity_id' => $q3Id]);
 $total3 = isset($r3['total_cost']) ? $r3['total_cost'] : 0;
 echo "Q-003 Total: $" . number_format($total3, 2) . "\n\n";
 
@@ -191,7 +191,7 @@ $links->handle_create(['from_id' => $a4Id, 'to_id' => $pStrut, 'type' => 'contai
 $links->handle_create(['from_id' => $a4Id, 'to_id' => $a4SubId, 'type' => 'contains', 'quantity' => 2]);
 $links->handle_create(['from_id' => $q4Id, 'to_id' => $a4Id, 'type' => 'contains', 'quantity' => 1]);
 
-$r4 = $systems->handle_load_quote(['quote_id' => $q4Id]);
+$r4 = $systems->handle_recalculate_entity(['entity_id' => $q4Id]);
 $total4 = isset($r4['total_cost']) ? $r4['total_cost'] : 0;
 echo "Q-004 Total: $" . number_format($total4, 2) . "\n\n";
 
@@ -211,7 +211,7 @@ $links->handle_create(['from_id' => $a5Id, 'to_id' => $pShell, 'type' => 'contai
 $links->handle_create(['from_id' => $a5Id, 'to_id' => $pCovers, 'type' => 'contains', 'quantity' => 4]);
 $links->handle_create(['from_id' => $q5Id, 'to_id' => $a5Id, 'type' => 'contains', 'quantity' => 1]);
 
-$r5 = $systems->handle_load_quote(['quote_id' => $q5Id]);
+$r5 = $systems->handle_recalculate_entity(['entity_id' => $q5Id]);
 $total5 = isset($r5['total_cost']) ? $r5['total_cost'] : 0;
 echo "Q-005 Total: $" . number_format($total5, 2) . "\n\n";
 

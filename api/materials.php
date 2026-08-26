@@ -4,12 +4,18 @@
  *
  * Material library — the reference data the cost engine prices against.
  *
- * Mirrors the original Fabricate MaterialsCollection / MaterialLibrarySchema:
- *   name, profile, materialType, category, grade, density,
- *   thickness, massPerMeter, massPerArea, unitCost, aliases
+ * Materials-as-entities: every material is an entity (type='material') with
+ * specification / dimensions / rate components. The material_library TABLE
+ * is the legacy seed mirror (seeders still write it; the migration
+ * scripts/migrate-material-library.php lifts rows into entities).
  *
- * library_category ('material'|'fastener'|'fitting') maps to how the item is
- * priced: mass-based (material) vs quantity-based (fastener/fitting).
+ * This API is the ONLY editing surface for materials (the "library"): quote
+ * contexts pick a material via materialLibraryId, they never edit its base
+ * data. Reads reconstruct the legacy material_library row shape so every
+ * consumer (cost engine, takeoff, compat, UI labels) sees the same fields.
+ *
+ * library_category ('material'|'fastener'|'fitting'|'flange') maps to how
+ * the item is priced: mass-based vs quantity-based.
  */
 namespace api;
 
@@ -24,7 +30,8 @@ class materials extends Base
     protected function buildTable()
     {
         $this->ensureEcsTables();
-        // Material library is a plain table (not ECS) — it's reference data.
+        // Legacy seed mirror — seeders (build-*.js) still write here; the API
+        // reads the material ENTITIES. Kept until seeders migrate.
         $this->pgCrud->execute(<<<'SQL'
 CREATE TABLE IF NOT EXISTS material_library (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,96 +48,74 @@ CREATE TABLE IF NOT EXISTS material_library (
     library_category VARCHAR(20) DEFAULT 'material',
     aliases JSONB DEFAULT '[]'::jsonb,
     data JSONB DEFAULT '{}'::jsonb,
-    user_id_owner UUID,          -- NULL = global/system library
+    user_id_owner UUID,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 )
 SQL);
-        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_mat_lib_cat ON material_library(library_category)');
-        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_mat_lib_owner ON material_library(user_id_owner)');
-        // Pipe / fitting / flange attribute columns — surfaced from the piping
-        // reference data (data/md) that previously lived only in the JSONB
-        // `data` blob. Idempotent ALTERs: safe on every request, app-managed.
-        //   od              outer diameter mm (pipe OD / fitting end-1 / flange pipe OD)
-        //   wt              wall thickness mm (pipe WT / fitting end-1 WT)
-        //   schedule        pipe schedule (#40/STD/XS/XXS) or fitting series
-        //   nb              nominal bore DN
-        //   nps             inch size (NPS)
-        //   mass_kg         mass per item (fittings/flanges)
-        //   paint_area_per_m  m² per metre external area (pipes)
-        //   ext_area        m² per item external paint area (fittings/flanges)
-        foreach ([
-            'od'              => 'NUMERIC',
-            'wt'              => 'NUMERIC',
-            'schedule'        => 'VARCHAR(20)',
-            'nb'              => 'NUMERIC',
-            'nps'             => 'VARCHAR(20)',
-            'mass_kg'         => 'NUMERIC',
-            'paint_area_per_m'=> 'NUMERIC',
-            'ext_area'        => 'NUMERIC',
-            // Supplier pricing: which supplier prices this material + when the
-            // buy price was last set (the SELL unit_cost is the same column;
-            // the timestamp records the last price update).
-            'supplier_id'     => 'UUID',
-            'price_updated_at'=> 'TIMESTAMPTZ',
-        ] as $col => $type) {
-            $this->pgCrud->execute("ALTER TABLE material_library ADD COLUMN IF NOT EXISTS $col $type");
-        }
     }
 
     /**
-     * List materials. Global (owner NULL) + user's own, optional filters.
-     * Filters: library_category, category, search (name/grade/profile), limit.
+     * List materials. Scope = the shared library (owned by the canonical
+     * library owner) + the caller's own materials — same semantics as the
+     * legacy "global (NULL owner) OR mine". Optional filters:
+     * library_category, category, search (name/grade/profile), limit.
      */
     public function handle_list($input = [])
     {
-        $where = '(user_id_owner IS NULL OR user_id_owner = $1)';
-        $params = [$this->effOwnerId()];
-        $idx = 2;
-
         $libCat = \getVal($input, 'library_category');
-        if ($libCat) {
-            if (!in_array($libCat, self::LIBRARY_CATEGORIES)) {
-                return ['error' => "Invalid library_category: $libCat"];
-            }
-            $where .= " AND library_category = \${$idx}";
-            $params[] = $libCat;
-            $idx++;
+        if ($libCat && !in_array($libCat, self::LIBRARY_CATEGORIES)) {
+            return ['error' => "Invalid library_category: $libCat"];
         }
-
         $category = \getVal($input, 'category');
-        if ($category) {
-            $where .= " AND category = \${$idx}";
-            $params[] = $category;
-            $idx++;
-        }
-
         $search = \getVal($input, 'search');
-        if ($search) {
-            $where .= " AND (name ILIKE \${$idx} OR COALESCE(grade,'') ILIKE \${$idx} OR COALESCE(profile,'') ILIKE \${$idx})";
-            $params[] = "%{$search}%";
-            $idx++;
-        }
-
         $limit = (int)\getVal($input, 'limit', 100);
         $limit = min(max($limit, 1), 2000);
 
-        $res = $this->pgCrud->read([
-            'table' => 'material_library',
-            'where' => $where,
-            'params' => $params,
-            'order_fields' => ['name ASC'],
-            'limit' => $limit,
-        ]);
-        $rows = $res['data'] ?? [];
-        // Normalize JSONB arrays that PgCrud returns as strings
-        foreach ($rows as &$r) {
-            $r['aliases'] = self::decodeJsonArray($r['aliases'] ?? []);
-            $r['data'] = self::decodeJsonArray($r['data'] ?? []);
+        // Lazy seed guard: if an admin opens an EMPTY library, seed it once
+        // (owned under them as the canonical library owner). Handles the
+        // fresh-install case where the first user is auto-admin at signup and
+        // never passes through set_user_role. Idempotent — no-ops if populated.
+        if ($this->isAdminCaller() && !$this->libraryHasMaterials()) {
+            $this->ensureSharedLibrary($this->effOwnerId());
         }
-        unset($r);
-        $this->attachSupplierNames($rows);
-        return $rows;
+
+        // The canonical library owner = the owner of the first material entity
+        // (the migration seeded the shared library under one owner).
+        $libOwner = $this->pgCrud->read([
+            'table' => 'entity',
+            'fields' => ['user_id_owner'],
+            'where' => "type = 'material' AND is_active = TRUE",
+            'order_fields' => ['created_at ASC'],
+            'limit' => 1,
+        ])['data'][0]['user_id_owner'] ?? null;
+
+        $rows = $this->pgCrud->read([
+            'table' => 'entity',
+            'where' => "type = 'material' AND is_active = TRUE
+                         AND (user_id_owner = \$1 OR user_id_owner = \$2)",
+            'params' => [$this->effOwnerId(), $libOwner],
+            'order_fields' => ['name ASC'],
+        ])['data'] ?? [];
+
+        $shapes = $this->materialEntitiesByIds(array_column($rows, 'id'));
+
+        $out = [];
+        foreach ($rows as $e) {
+            $m = $shapes[$e['id']] ?? null;
+            if (!$m) continue;
+            if ($libCat && ($m['library_category'] ?? '') !== $libCat) continue;
+            if ($category && ($m['category'] ?? '') !== $category) continue;
+            if ($search) {
+                if (stripos($m['name'] ?? '', $search) === false
+                    && stripos((string)($m['grade'] ?? ''), $search) === false
+                    && stripos((string)($m['profile'] ?? ''), $search) === false) continue;
+            }
+            $out[] = $m;
+            if (count($out) >= $limit) break;
+        }
+        $this->attachSupplierNames($out);
+        return $out;
     }
 
     /**
@@ -175,162 +160,307 @@ SQL);
     }
 
     /**
-     * Get one material by id (global or own).
+     * Get one material by id (shared reference data).
      */
     public function handle_get($input = [])
     {
         $id = \getVal($input, 'id') ?: \getVal($input, 'material_id');
         if (!$id) return ['error' => 'Material id is required.'];
 
-        $res = $this->pgCrud->read([
-            'table' => 'material_library',
-            'where' => 'id = $1 AND (user_id_owner IS NULL OR user_id_owner = $2)',
-            'params' => [$id, $this->effOwnerId()],
-            'limit' => 1,
-        ]);
-        $row = $res['data'][0] ?? null;
-        if (!$row) return ['error' => 'Material not found.', 'error_code' => 404];
-        $row['aliases'] = self::decodeJsonArray($row['aliases'] ?? []);
-        $row['data'] = self::decodeJsonArray($row['data'] ?? []);
+        $m = $this->getMaterialEntity($id);
+        if (!$m) return ['error' => 'Material not found.', 'error_code' => 404];
+        $row = $this->materialRowShape($m['entity'], $m['comps']);
         $rows = [$row];
         $this->attachSupplierNames($rows);
         return $rows[0];
     }
 
+    /** True if ANY material entity exists (shared library already seeded). */
+    private function libraryHasMaterials()
+    {
+        return (bool)$this->pgCrud->read([
+            'table' => 'entity',
+            'where' => "type = 'material' AND is_active = TRUE",
+            'limit' => 1,
+        ])['data'][0] ?? false;
+    }
+
+    /** True if the current caller is an admin (forge user_role 1). */
+    private function isAdminCaller()
+    {
+        $res = $this->pgCrud->read([
+            'table' => 'user',
+            'fields' => ['user_role', 'user_data'],
+            'where' => 'id = $1',
+            'params' => [$this->effOwnerId()],
+            'limit' => 1,
+        ])['data'][0] ?? [];
+        $ud = $res['user_data'] ?? [];
+        if (isset($ud['role'])) return $ud['role'] === 'admin';
+        return (int)($res['user_role'] ?? 0) >= 1;
+    }
+
     /**
-     * Create a user-owned material (global library is seeded by scripts, not API).
+     * Seed the shared material library ONCE when the first admin is created.
+     *
+     * If no `type='material'` entity exists yet (fresh install / empty library),
+     * reads the bundled seed-data/*.json and inserts each row as a material
+     * entity + specification/dimensions/rate components, owned by the given
+     * admin (making them the canonical library owner). If materials already
+     * exist, this is a no-op — it never re-seeds or re-owns.
+     *
+     * This is the single entry point that satisfies "seeds fire only on a new
+     * admin account creation" — invoked from api/admin.php when a user is
+     * promoted to admin, and from handle_list as a lazy fallback for the
+     * auto-admin first user. Idempotent across all callers.
+     *
+     * @param string $adminUserId The admin to own the seeded library.
+     * @return array{seeded:int,skipped:int}
+     */
+    public function ensureSharedLibrary($adminUserId)
+    {
+        // Already seeded? Never re-fire (a second admin must not get the library
+        // re-created or re-owned under them).
+        if ($this->libraryHasMaterials()) {
+            return ['seeded' => 0, 'skipped' => 1];
+        }
+
+        $adminUserId = $adminUserId ?: $this->effOwnerId();
+        $seeded = 0;
+        $files = [
+            __DIR__ . '/../seed-data/materials.json',
+            __DIR__ . '/../seed-data/fasteners.json',
+            __DIR__ . '/../seed-data/fittings.json',
+            __DIR__ . '/../seed-data/flanges.json',
+            __DIR__ . '/../seed-data/pipes.json',
+        ];
+        foreach ($files as $file) {
+            if (!is_file($file)) continue;
+            $rows = json_decode(file_get_contents($file), true);
+            if (!is_array($rows)) continue;
+            foreach ($rows as $m) {
+                if (!is_array($m) || empty($m['name'])) continue;
+                if ($this->insertMaterialEntity($m, $adminUserId)) $seeded++;
+            }
+        }
+        return ['seeded' => $seeded, 'skipped' => 0];
+    }
+
+    /** Insert one seed row (seed-data/*.json shape) as a material entity. */
+    private function insertMaterialEntity($m, $owner)
+    {
+        $name = (string)$m['name'];
+        $spec = [
+            'library_category' => $this->categoryForProfile($m),
+            'profile' => $m['profile'] ?? ($m['type'] ?? ''),
+            'material_type' => $m['materialType'] ?? $m['material_type'] ?? $m['material'] ?? null,
+            'category' => $m['category'] ?? 'Carbon Steel',
+            'grade' => $m['grade'] ?? null,
+            'schedule' => $m['schedule'] ?? null,
+        ];
+        if (!empty($m['data']) && is_array($m['data'])) {
+            foreach (['kind','dn','type','rating','standard','pipeOd','flangeOd','facing','dims','description','weldCirc','massKg','weldType'] as $k) {
+                if (array_key_exists($k, $m['data'])) $spec[$k] = $m['data'][$k];
+            }
+        }
+        $dims = [
+            'density' => $m['density'] ?? null,
+            'thickness' => $m['thickness'] ?? null,
+            'mass_per_meter' => $m['massPerMeter'] ?? $m['mass_per_meter'] ?? null,
+            'mass_per_area' => $m['massPerArea'] ?? $m['mass_per_area'] ?? null,
+            'od' => $m['od'] ?? null,
+            'wt' => $m['wt'] ?? null,
+            'nb' => $m['nb'] ?? null,
+            'nps' => $m['nps'] ?? null,
+            'massKg' => $m['massKg'] ?? null,
+            'paintAreaPerM' => $m['paintAreaPerM'] ?? null,
+            'extArea' => $m['extArea'] ?? null,
+        ];
+        $rate = ['unit_cost' => $m['unitCost'] ?? $m['unit_cost'] ?? 0];
+
+        $e = $this->pgCrud->save([
+            'table' => 'entity',
+            'data' => [
+                'type' => 'material',
+                'name' => $name,
+                'description' => $m['description'] ?? $name,
+                'quantity' => 1,
+                'data' => [],
+                'user_id_owner' => $owner,
+            ],
+        ]);
+        $eid = $e['data']['id'] ?? null;
+        if (!$eid) return false;
+        foreach ([['specification', $spec], ['dimensions', $dims], ['rate', $rate]] as [$t, $d]) {
+            $this->pgCrud->save([
+                'table' => 'component',
+                'data' => ['entity_id' => $eid, 'type' => $t, 'data' => $d, 'user_id_owner' => $owner],
+            ]);
+        }
+        return true;
+    }
+
+    /** Map a seed row to a library_category by profile/type. */
+    private function categoryForProfile($m)
+    {
+        $p = strtolower($m['profile'] ?? $m['type'] ?? '');
+        if (stripos($p, 'flange') !== false) return 'flange';
+        if (in_array($p, ['fitting','bend','elbow','tee','coupling','reducer','valve','gasket','nipple','cap'], true)) return 'fitting';
+        if (in_array($p, ['bolt','nut','washer','stud','fastener'], true)) return 'fastener';
+        if (in_array($p, ['pipe','tube','plate','section','block','round','angle','channel','h-beams','sheet','bar'], true)) return 'material';
+        return 'material';
+    }
+
+    /**
+     * Create a material (entity + specification/dimensions/rate components).
+     * The library API is the only create surface.
      */
     public function handle_create($input = [])
     {
         $name = \getVal($input, 'name');
         if (!$name) return ['error' => 'name is required.'];
+        $owner = $this->effOwnerId();
 
         $data = \getVal($input, 'data', []);
         $data = is_array($data) ? $data : [];
 
-        $res = $this->pgCrud->save([
-            'table' => 'material_library',
+        $spec = [
+            'library_category' => \getVal($input, 'library_category', 'material'),
+            'profile' => \getVal($input, 'profile'),
+            'material_type' => \getVal($input, 'material_type') ?? \getVal($input, 'materialType'),
+            'category' => \getVal($input, 'category', 'Carbon Steel'),
+            'grade' => \getVal($input, 'grade'),
+            'schedule' => \getVal($input, 'schedule'),
+            'aliases' => \getVal($input, 'aliases', []),
+        ];
+        $dims = [
+            'density' => \getVal($input, 'density'),
+            'thickness' => \getVal($input, 'thickness'),
+            'mass_per_meter' => \getVal($input, 'mass_per_meter') ?? \getVal($input, 'massPerMeter'),
+            'mass_per_area' => \getVal($input, 'mass_per_area') ?? \getVal($input, 'massPerArea'),
+            'od' => \getVal($input, 'od'),
+            'wt' => \getVal($input, 'wt'),
+            'nb' => \getVal($input, 'nb'),
+            'nps' => \getVal($input, 'nps'),
+            'massKg' => \getVal($input, 'mass_kg') ?? \getVal($input, 'massKg'),
+            'paintAreaPerM' => \getVal($input, 'paint_area_per_m') ?? \getVal($input, 'paintAreaPerM'),
+            'extArea' => \getVal($input, 'ext_area') ?? \getVal($input, 'extArea'),
+        ];
+        $rate = [
+            'unit_cost' => \getVal($input, 'unit_cost') ?? \getVal($input, 'unitCost') ?? 0,
+            'supplier_id' => \getVal($input, 'supplier_id'),
+        ];
+        // Kind-specific variables ride in via data (dn, type, rating, pipeOd…)
+        foreach (['kind','dn','type','rating','standard','pipeOd','flangeOd','facing','dims','description','weldCirc','massKg'] as $k) {
+            if (array_key_exists($k, $data)) $spec[$k] = $data[$k];
+        }
+
+        $e = $this->pgCrud->save([
+            'table' => 'entity',
             'data' => [
+                'type' => 'material',
                 'name' => $name,
-                'profile' => \getVal($input, 'profile'),
-                'material_type' => \getVal($input, 'material_type'),
-                'category' => \getVal($input, 'category', 'Carbon Steel'),
-                'grade' => \getVal($input, 'grade'),
-                'density' => \getVal($input, 'density'),
-                'thickness' => \getVal($input, 'thickness'),
-                'mass_per_meter' => \getVal($input, 'mass_per_meter'),
-                'mass_per_area' => \getVal($input, 'mass_per_area'),
-                'unit_cost' => \getVal($input, 'unit_cost', 0),
-                'library_category' => \getVal($input, 'library_category', 'material'),
-                // Pipe/fitting/flange attribute columns (see buildTable)
-                'od' => \getVal($input, 'od'),
-                'wt' => \getVal($input, 'wt'),
-                'schedule' => \getVal($input, 'schedule'),
-                'nb' => \getVal($input, 'nb'),
-                'nps' => \getVal($input, 'nps'),
-                'mass_kg' => \getVal($input, 'mass_kg'),
-                'paint_area_per_m' => \getVal($input, 'paint_area_per_m'),
-                'ext_area' => \getVal($input, 'ext_area'),
-                'aliases' => \getVal($input, 'aliases', []),
-                'data' => $data,
-                'user_id_owner' => $this->effOwnerId(),
+                'description' => $data['description'] ?? $name,
+                'quantity' => 1,
+                'data' => [],
+                'user_id_owner' => $owner,
             ],
         ]);
-        if (!empty($res['error'])) return $res;
-        return $this->handle_get(['id' => $res['data']['id']]);
+        $eid = $e['data']['id'] ?? null;
+        if (!$eid) return ['error' => 'Material create failed.'];
+        foreach ([['specification', $spec], ['dimensions', $dims], ['rate', $rate]] as [$t, $d]) {
+            $this->pgCrud->save([
+                'table' => 'component',
+                'data' => ['entity_id' => $eid, 'type' => $t, 'data' => $d, 'user_id_owner' => $owner],
+            ]);
+        }
+        return $this->handle_get(['id' => $eid]);
     }
 
     /**
-     * Update a material. Pricing fields (unit_cost, supplier_id) are editable
-     * on ANY row — even global library items — because the buy price and which
-     * supplier quotes it are the user's own commercial data. Spec fields
-     * (name, profile, dims) stay read-only for global rows.
+     * Update a material. Spec + pricing fields editable (the library is the
+     * edit surface; quote contexts only pick/reference materials). Delete
+     * stays owner-only.
      */
     public function handle_update($input = [])
     {
         $id = \getVal($input, 'id') ?: \getVal($input, 'material_id');
         if (!$id) return ['error' => 'Material id is required.'];
+        $m = $this->getMaterialEntity($id);
+        if (!$m) return ['error' => 'Material not found.', 'error_code' => 404];
 
-        $existing = $this->handle_get(['id' => $id]);
-        if (isset($existing['error'])) return $existing;
-
-        $sets = [];
-        $params = [];
-        $idx = 1;
-
-        // Spec columns — editable on any row (global or user-owned). The
-        // seeded library is a starting point; users fix names/dims as they
-        // encounter real-world data. (Delete stays own-only.)
-        $specCols = ['name','profile','material_type','category','grade','density',
-                     'thickness','mass_per_meter','mass_per_area','library_category',
-                     'od','wt','schedule','nb','nps','mass_kg','paint_area_per_m','ext_area'];
-        foreach ($specCols as $col) {
-            if (array_key_exists($col, $input)) {
-                $sets[] = "$col = \${$idx}";
-                $params[] = $input[$col];
-                $idx++;
-            }
+        if (array_key_exists('name', $input)) {
+            $this->pgCrud->execute('UPDATE entity SET name = $1, updated_at = NOW() WHERE id = $2', [$input['name'], $id]);
         }
-
-        // Pricing columns — editable on ANY material; stamp price_updated_at
-        // whenever the buy price or supplier changes.
-        $priceTouched = false;
-        foreach (['unit_cost', 'supplier_id'] as $col) {
-            if (array_key_exists($col, $input)) {
-                $sets[] = "$col = \${$idx}";
-                $params[] = $input[$col] === '' ? null : $input[$col];
-                $idx++;
-                $priceTouched = true;
-            }
-        }
-        if ($priceTouched) {
-            $sets[] = 'price_updated_at = NOW()';
-        }
-
-        if (isset($input['aliases']) && is_array($input['aliases'])) {
-            $sets[] = "aliases = \${$idx}::jsonb";
-            $params[] = json_encode($input['aliases']);
-            $idx++;
-        }
-        // data JSONB merge (kind-specific variables: dn, type, rating, pipeOd,
-        // massKg, paintAreaPerM, extArea) — preserves keys not in the payload.
+        // data JSONB merge (kind-specific variables) → specification comp
         if (isset($input['data']) && is_array($input['data']) && !empty($input['data'])) {
-            $sets[] = "data = COALESCE(data, '{}'::jsonb) || \${$idx}::jsonb";
-            $params[] = json_encode($input['data']);
-            $idx++;
+            $this->patchMaterialComp($m, 'specification', $input['data']);
         }
-        if (!$sets) return ['error' => 'Nothing to update.'];
+        $specPatch = [];
+        foreach (['profile','material_type','category','grade','library_category','schedule'] as $k) {
+            if (array_key_exists($k, $input)) $specPatch[$k] = $input[$k];
+        }
+        if (isset($input['aliases']) && is_array($input['aliases'])) $specPatch['aliases'] = $input['aliases'];
+        if ($specPatch) $this->patchMaterialComp($m, 'specification', $specPatch);
 
-        $sets[] = 'updated_at = NOW()';
-        $params[] = $id;
-        $params[] = $this->effOwnerId();
+        $dimsPatch = [];
+        foreach (['density','thickness','mass_per_meter','mass_per_area','od','wt','nb','nps'] as $k) {
+            if (array_key_exists($k, $input)) $dimsPatch[$k] = $input[$k];
+        }
+        if (array_key_exists('mass_kg', $input)) $dimsPatch['massKg'] = $input['mass_kg'];
+        if (array_key_exists('paint_area_per_m', $input)) $dimsPatch['paintAreaPerM'] = $input['paint_area_per_m'];
+        if (array_key_exists('ext_area', $input)) $dimsPatch['extArea'] = $input['ext_area'];
+        if ($dimsPatch) $this->patchMaterialComp($m, 'dimensions', $dimsPatch);
 
-        $this->pgCrud->execute(
-            "UPDATE material_library SET " . implode(', ', $sets) .
-            " WHERE id = \${$idx} AND (user_id_owner IS NULL OR user_id_owner = \$" . ($idx + 1) . ")",
-            $params
-        );
+        $ratePatch = [];
+        foreach (['unit_cost','supplier_id'] as $k) {
+            if (array_key_exists($k, $input)) $ratePatch[$k] = $input[$k] === '' ? null : $input[$k];
+        }
+        if ($ratePatch) {
+            $ratePatch['price_updated_at'] = date('c');
+            $this->patchMaterialComp($m, 'rate', $ratePatch);
+        }
+
         return $this->handle_get(['id' => $id]);
     }
 
+    /** Patch (merge) one of the material's components by type. */
+    private function patchMaterialComp($m, $type, $patch)
+    {
+        foreach ($m['comps'] as $c) {
+            if (($c['type'] ?? '') === $type) {
+                $this->pgCrud->execute(
+                    "UPDATE component SET data = component.data || \$2::jsonb, updated_at = NOW() WHERE id = \$1",
+                    [$c['id'], json_encode($patch)]
+                );
+                return;
+            }
+        }
+        $this->pgCrud->save([
+            'table' => 'component',
+            'data' => [
+                'entity_id' => $m['entity']['id'],
+                'type' => $type,
+                'data' => $patch,
+                'user_id_owner' => $m['entity']['user_id_owner'] ?? $this->effOwnerId(),
+            ],
+        ]);
+    }
+
     /**
-     * Delete own material.
+     * Delete a material — owner only (shared library = the library owner).
      */
     public function handle_delete($input = [])
     {
         $id = \getVal($input, 'id') ?: \getVal($input, 'material_id');
         if (!$id) return ['error' => 'Material id is required.'];
-
-        $existing = $this->handle_get(['id' => $id]);
-        if (isset($existing['error'])) return $existing;
-        if (empty($existing['user_id_owner'])) {
-            return ['error' => 'Global library materials are read-only.', 'error_code' => 403];
+        $m = $this->getMaterialEntity($id);
+        if (!$m) return ['error' => 'Material not found.', 'error_code' => 404];
+        $owner = $m['entity']['user_id_owner'] ?? null;
+        if (!$owner || $owner !== $this->effOwnerId()) {
+            return ['error' => 'Only the owner can delete this material.', 'error_code' => 403];
         }
-
-        $this->pgCrud->execute(
-            "DELETE FROM material_library WHERE id = \$1 AND user_id_owner = \$2",
-            [$id, $this->effOwnerId()]
-        );
+        $this->pgCrud->execute('UPDATE entity SET is_active = FALSE, updated_at = NOW() WHERE id = $1', [$id]);
         return ['success' => true, 'id' => $id];
     }
 
@@ -398,6 +528,77 @@ SQL);
 
         usort($scored, fn($a, $b) => $b['match_score'] <=> $a['match_score']);
         return array_slice($scored, 0, 10);
+    }
+
+    /**
+     * Structured spec matcher — for import-time auto-matching.
+     * Input: { section, dn, kind, desc, cls }  (+ optional pre-fetched candidates)
+     * Scores every library row: DN/NB size hit (40%) + category word (30%)
+     * + wall/schedule tokens (20%) + class/grade hint (10%). Returns top 5.
+     */
+    public function handle_match_spec($input = [])
+    {
+        $candidates = $input['candidates'] ?? null;
+        if (!is_array($candidates)) {
+            $candidates = $this->handle_list(['limit' => 2000]);
+            if (isset($candidates['error'])) return $candidates;
+        }
+        return self::scoreSpec($input, $candidates);
+    }
+
+    /** Score $input's spec against pre-fetched candidate rows (pure). */
+    public static function scoreSpec(array $input, array $candidates): array
+    {
+        $section = strtoupper((string)\getVal($input, 'section'));
+        $desc = strtolower((string)\getVal($input, 'desc'));
+        $dn = preg_replace('/[^0-9]/', '', (string)\getVal($input, 'dn'));
+        $cls = strtoupper((string)\getVal($input, 'cls'));
+
+        // Controlled-vocab category words → library profile/name fragments.
+        $cats = [
+            'FLANGE' => 'Flange', 'TEE' => 'Tee', 'ELBOW' => 'Elbow', 'BEND' => 'Bend',
+            'REDUCER' => 'Reducer', 'COUPLING' => 'Coupling', 'CAP' => 'Cap',
+            'NIPPLE' => 'Nipple', 'UNION' => 'Union', 'GASKET' => 'Gasket',
+            'VALVE' => 'Valve', 'STUB' => 'Stub', 'SPACER' => 'Spacer',
+            'PIPE' => 'Pipe', 'PLATE' => 'Plate', 'SHEET' => 'Sheet',
+        ];
+        $catWord = '';
+        foreach ($cats as $kw => $word) {
+            if ($section && strpos($section, $kw) !== false) { $catWord = $word; break; }
+            if (!$section && strpos($desc, strtolower($kw)) !== false) { $catWord = $word; break; }
+        }
+
+        // Wall / schedule tokens both sides can share.
+        $walls = [];
+        foreach (['MED','MEDIUM','STD','STANDARD','XS','SCH40','SCH80','SCH160','HEAVY','LIGHT'] as $w) {
+            if (strpos($desc, strtolower($w)) !== false || strpos($section, $w) !== false) $walls[] = $w;
+        }
+
+        $dnNum = (string)(int)$dn;   // "080" -> "80"
+        $sizePats = $dnNum !== '' ? ['DN'.$dnNum, 'DN '.$dnNum, $dnNum.'NB', $dnNum.' NB', 'OD'.$dnNum] : [];
+        $scored = [];
+        foreach ($candidates as $m) {
+            $name = strtoupper((string)($m['name'] ?? ''));
+            $profile = strtoupper((string)($m['profile'] ?? ''));
+            $score = 0.0;
+            foreach ($sizePats as $p) { if (strpos($name, $p) !== false) { $score += 0.4; break; } }
+            if ($dnNum === '') $score += 0.05;
+            // Category (30%) — match against profile OR the row name.
+            if ($catWord && ($profile === strtoupper($catWord) || strpos($name, strtoupper($catWord)) !== false)) $score += 0.3;
+            elseif (!$catWord) $score += 0.05;
+            // Wall / schedule (20%); unspecified wall = neutral nudge toward MED-type defaults.
+            if ($walls) {
+                foreach ($walls as $w) { if (strpos($name, $w) !== false) { $score += 0.2; break; } }
+            } else {
+                $score += 0.08;
+            }
+            // Class / grade hint (10%) — CS excludes stainless names, HDPE needs HDPE.
+            if ($cls === 'CS' && !preg_match('/316|304|SS |STAINLESS|HDPE/i', $name)) $score += 0.1;
+            elseif ($cls === 'HDPE' && strpos($name, 'HDPE') !== false) $score += 0.1;
+            if ($score >= 0.5) { $m['match_score'] = round(min($score, 1.0), 2); $scored[] = $m; }
+        }
+        usort($scored, fn($a, $b) => $b['match_score'] <=> $a['match_score']);
+        return array_slice($scored, 0, 5);
     }
 }
 

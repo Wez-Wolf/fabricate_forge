@@ -6,11 +6,11 @@
  *
  * Process data lives in 'process' components:
  *   { data: { boilermaking: 4.5, welding: 2.0, ... } }  (named fields, hours)
- *   { data: { items: [{ name, time }, ...] } }          (legacy array format)
+ *   { data: { ops: [{ category, hours, summary }, ...], note } }  (buildable list)
  *
  * This endpoint:
  *   - exposes the trade registry (names + defaults)
- *   - extracts hours from process components (both formats)
+ *   - extracts hours from process components (both modern shapes)
  *   - prices hours against the rate hierarchy → per-trade cost
  *   - aggregates hours across an entity's whole BOM (per quote)
  */
@@ -33,6 +33,89 @@ class process extends Base
         $this->ensureEcsTables();
     }
 
+    // ── Process system (pure, entity-agnostic) ───────
+
+    /**
+     * Compute hours from a process component's data.
+     * Returns [{ name: trade, time: hours }].
+     */
+    public static function computeHours($processData)
+    {
+        return self::extractItems($processData);
+    }
+
+    /**
+     * Get merged process hours for an entity (reads DB).
+     * Pass $ctx (the calling Base instance, e.g. cost.php) so component reads
+     * run under the caller's authenticated owner scope — the legacy anonymous-
+     * class path has no owner set and silently returns [] outside HTTP.
+     */
+    public static function hoursForEntity($entityId, $ctx = null)
+    {
+        if ($ctx !== null) {
+            $hours = [];
+            foreach ($ctx->getComponents($entityId, 'process') as $c) {
+                $hours = self::mergeHours($hours, $c['data'] ?? []);
+            }
+            return $hours;
+        }
+        $base = new class extends \api\Base {
+            public function get($entityId) {
+                $comps = $this->getComponents($entityId, 'process');
+                $hours = [];
+                foreach ($comps as $c) {
+                    $hours = \api\process::mergeHours($hours, $c['data'] ?? []);
+                }
+                return $hours;
+            }
+        };
+        return $base->get($entityId);
+    }
+
+    /**
+     * PRICED FRAGMENT PRODUCER — the process system's contribution to the
+     * cost component (pure — no DB). Hours map + resolved rates in,
+     * cost-comp-shaped fragment out: per-trade costs + processTotal + the
+     * exposed hour fields (boilerHrs/weldHrs/machHrs). cost.php sums this
+     * fragment with the material and on-cost fragments.
+     *
+     * @param array $hours   {trade: hours}
+     * @param array $rates   {trade: {rate: R/h}}  (entity → company → global)
+     * @param float $quantity entity quantity
+     * @return array cost-comp fragment
+     */
+    public static function pricedFragment($hours, $rates, $quantity = 1.0)
+    {
+        $perTrade = []; $processTotal = 0.0;
+        foreach ($hours as $trade => $hrs) {
+            $hrs = (float)$hrs;
+            if ($hrs <= 0) continue;
+            $rate = (float)($rates[$trade]['rate'] ?? 0);
+            $cost = round($hrs * $rate * (float)$quantity, 2);
+            $perTrade[$trade] = $cost;
+            $processTotal += $cost;
+        }
+        return [
+            'boilermaking' => round($perTrade['boilermaking'] ?? 0, 2),
+            'welding'      => round($perTrade['welding'] ?? 0, 2),
+            'machining'    => round($perTrade['machining'] ?? 0, 2),
+            'cutting'      => round($perTrade['cutting'] ?? 0, 2),
+            'drilling'     => round($perTrade['drilling'] ?? 0, 2),
+            'grinding'     => round($perTrade['grinding'] ?? 0, 2),
+            'bending'      => round($perTrade['bending'] ?? 0, 2),
+            'assembly'     => round($perTrade['assembly'] ?? 0, 2),
+            'painting'     => round($perTrade['painting'] ?? 0, 2),
+            'qualityControl' => round($perTrade['qualityControl'] ?? 0, 2),
+            'surfaceTreatment' => round($perTrade['surfaceTreatment'] ?? 0, 2),
+            'processTotal' => round($processTotal, 2),
+            'labor'        => round($processTotal, 2),
+            'boilerHrs'    => round((float)($hours['boilermaking'] ?? 0), 2),
+            'weldHrs'      => round((float)($hours['welding'] ?? 0), 2),
+            'machHrs'      => round((float)($hours['machining'] ?? 0), 2),
+            'hours'        => $hours,
+        ];
+    }
+
     // ── Registry ───────────────────────────────────────
 
     /**
@@ -46,133 +129,33 @@ class process extends Base
         ];
     }
 
-    // ── Extraction ─────────────────────────────────────
+    // ── Pure extraction (entity-agnostic, no DB) ─────
 
     /**
-     * Extract hours from one process component (supports both formats).
-     * Input: { component_id } or { data: {...} }
-     */
-    public function handle_extract($input = [])
-    {
-        $compId = \getVal($input, 'component_id') ?: \getVal($input, 'id');
-        $data = \getVal($input, 'data');
-        if ($compId) {
-            $comp = (new \api\components())->handle_get(['id' => $compId]);
-            // handle_get returns error array or component; guard array shape
-            if (isset($comp['error'])) return $comp;
-            $data = $comp['data'] ?? [];
-        }
-        if (!is_array($data)) return ['error' => 'component_id or data required.'];
-
-        return ['items' => self::extractItems($data), 'total_hours' => self::sumHours($data)];
-    }
-
-    /**
-     * Extract + price process hours for a single entity.
-     * Prices each trade via the rate hierarchy.
-     * Input: { entity_id, company_rates? }
-     */
-    public function handle_calculate_entity($input = [])
-    {
-        $entityId = \getVal($input, 'entity_id');
-        if (!$entityId) return ['error' => 'entity_id is required.'];
-        if (!$this->getEntity($entityId)) {
-            return ['error' => 'Entity not found.', 'error_code' => 404];
-        }
-
-        $comps = $this->getComponents($entityId, 'process');
-        $hours = [];
-        foreach ($comps as $c) {
-            $hours = self::mergeHours($hours, $c['data'] ?? []);
-        }
-        $items = self::extractItems($hours); // $hours is already a named-field map {trade: hrs}
-
-        // Price against the rate hierarchy (rates.php API)
-        $rates = $this->getAllEffectiveRates($entityId);
-        $priced = [];
-        $total = 0.0;
-        foreach ($items as $it) {
-            $rate = $rates[$it['name']]['rate'] ?? 0;
-            $cost = round($it['time'] * $rate, 2);
-            $priced[] = [
-                'name' => $it['name'],
-                'time' => $it['time'],
-                'rate' => $rate,
-                'cost' => $cost,
-                'source' => $rates[$it['name']]['source'] ?? 'global',
-            ];
-            $total += $cost;
-        }
-
-        return [
-            'entity_id' => $entityId,
-            'items' => $priced,
-            'total_hours' => round(self::sumHours($hours), 2),
-            'total_cost' => round($total, 2),
-        ];
-    }
-
-    /**
-     * Aggregate process hours across an entity's whole BOM (children via
-     * contains links, recursive). Used by the quote Process tab.
-     * Input: { entity_id, max_depth? }
-     */
-    public function handle_aggregate($input = [])
-    {
-        $entityId = \getVal($input, 'entity_id');
-        if (!$entityId) return ['error' => 'entity_id is required.'];
-        $maxDepth = (int)\getVal($input, 'max_depth', 10);
-
-        $allHours = [];
-        $this->collectHours($entityId, 0, $maxDepth, $allHours);
-
-        // Price the aggregate against the root entity's rate context
-        $rates = $this->getAllEffectiveRates($entityId);
-        $priced = [];
-        $total = 0.0;
-        foreach ($allHours as $trade => $hours) {
-            $rate = $rates[$trade]['rate'] ?? 0;
-            $cost = round($hours * $rate, 2);
-            $priced[] = [
-                'name' => $trade,
-                'hours' => round($hours, 2),
-                'rate' => $rate,
-                'cost' => $cost,
-            ];
-            $total += $cost;
-        }
-
-        return [
-            'entity_id' => $entityId,
-            'trades' => $priced,
-            'total_hours' => round(array_sum($allHours), 2),
-            'total_cost' => round($total, 2),
-        ];
-    }
-
-    // ── Internal ───────────────────────────────────────
-
-    /**
-     * Get all effective rates for an entity via rates.php API (no HTTP).
-     */
-    private function getAllEffectiveRates($entityId)
-    {
-        $ratesApi = new \api\rates();
-        $ratesApi->user_id = $this->effOwnerId();
-        return $ratesApi->handle_get_all_effective(['entity_id' => $entityId]);
-    }
-
-    /**
-     * Extract named-trade items from a process component's data.
-     * Handles both { boilermaking: 4.5 } and { items: [{name,time}] }.
+     * Extract named-trade hours from a process component's data.
+     * Accepted shapes (all collapse to [{ name: <trade>, time: <hrs> }]):
+     *   - named-field map: { boilermaking: 4.5, welding: 2.0 }
+     *   - operation list:  { ops: [{ category, hours, summary }, ...] }
+     *   - legacy array:    { items: [{ name, time }, ...] }
      */
     public static function extractItems($data)
     {
+        if (!is_array($data)) return [];
         $items = [];
         if (isset($data['items']) && is_array($data['items'])) {
             foreach ($data['items'] as $it) {
-                if (isset($it['name'])) {
-                    $items[] = ['name' => $it['name'], 'time' => (float)($it['time'] ?? 0)];
+                $name = $it['name'] ?? $it['trade'] ?? null;
+                if ($name) {
+                    $items[] = ['name' => $name, 'time' => (float)($it['time'] ?? $it['hours'] ?? 0)];
+                }
+            }
+            return $items;
+        }
+        if (isset($data['ops']) && is_array($data['ops'])) {
+            foreach ($data['ops'] as $op) {
+                $cat = $op['category'] ?? null;
+                if ($cat) {
+                    $items[] = ['name' => $cat, 'time' => (float)($op['hours'] ?? 0)];
                 }
             }
             return $items;
@@ -186,7 +169,28 @@ class process extends Base
     }
 
     /**
-     * Sum hours from a data blob (named-field or items format).
+     * Extract the operation list (with summaries) from a component's data.
+     * Returns { category, hours, summary } rows for the buildable UI; reads
+     * only the `ops` list (named-field maps carry no summaries).
+     */
+    public static function extractOps($data)
+    {
+        if (!is_array($data) || empty($data['ops']) || !is_array($data['ops'])) return [];
+        $ops = [];
+        foreach ($data['ops'] as $op) {
+            if (isset($op['category'])) {
+                $ops[] = [
+                    'category' => $op['category'],
+                    'hours' => (float)($op['hours'] ?? 0),
+                    'summary' => (string)($op['summary'] ?? ''),
+                ];
+            }
+        }
+        return $ops;
+    }
+
+    /**
+     * Sum hours from a process component's data (named-field map or ops list).
      */
     public static function sumHours($data)
     {
@@ -206,21 +210,6 @@ class process extends Base
         return $a;
     }
 
-    /**
-     * Recursively collect process hours from an entity and its contains-children.
-     */
-    private function collectHours($entityId, $depth, $maxDepth, &$acc)
-    {
-        if ($depth > $maxDepth) return;
-        $comps = $this->getComponents($entityId, 'process');
-        foreach ($comps as $c) {
-            $acc = self::mergeHours($acc, $c['data'] ?? []);
-        }
-        $links = $this->getLinks($entityId, 'contains');
-        foreach ($links['out'] as $link) {
-            $this->collectHours($link['to_id'], $depth + 1, $maxDepth, $acc);
-        }
-    }
 }
 
 \api\dispatchIfEntry(__FILE__);

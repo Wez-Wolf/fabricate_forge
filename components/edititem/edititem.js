@@ -1,11 +1,12 @@
 /**
- * components/edititem — Edit Item form (POPUP body) for quote-view.
- * Replaces the forge-form popup: name/type/qty + material-select
- * (searchable library picker) + dimensions + material variables
- * (butt welds, cost R/m, R/ea, shop handling, weld size, pipe WT)
- * + paint & lining (in-house / sub-contract, coatings 1-4, transport)
- * + all process-trade hours.
- * Emits submit with the form payload.
+ * components/edititem — Edit Item form (POPUP body) for the quote detail.
+ * Tabbed: Detail / Link / Material & Paint / Process.
+ *  - Detail: name/type + READ-ONLY global BoQ qty (driven by links, not editable here).
+ *  - Link: the SINGLE parent this row is linked to + the quantity in THAT parent
+ *    (this parent's contains-link quantity, editable → links.update).
+ *  - Material & Paint: material-select + dims + kind vars + paint/lining.
+ *  - Process: free-text note + a buildable ops list [{category, hours, summary}].
+ * Emits submit with the form payload (incl. link id/qty + ops + note).
  */
 var comp = {
     mixins: [COMP.base],
@@ -14,23 +15,38 @@ var comp = {
         trades: { type: Array, default: function () {
             return ['boilermaking', 'welding', 'machining', 'painting', 'assembly', 'qualityControl', 'surfaceTreatment', 'cutting', 'drilling', 'grinding', 'bending'];
         } },
+        // Per-parent link context: the contains-link the current row came from.
+        link_id: { type: String, default: null },
+        parent_name: { type: String, default: '' },
+        parent_qty: { type: [Number, String], default: 1 },
     },
     data() {
         return {
+            activeTab: 'detail',
+            tabs: [
+                { key: 'detail', name: 'Detail' },
+                { key: 'link',    name: 'Link' },
+                { key: 'material',name: 'Material' },
+                { key: 'process', name: 'Process' },
+            ],
             kind: '',            // 'pipe' | 'flange' | 'fitting' | 'material'
             materials: [],       // library rows (to resolve kind on load)
+            process_ops: [],     // [{category, hours, summary}]
+            linkQty: 1,          // editable: quantity in the current parent
             // Declarative type list — same options as quote-items/Add Item.
             typeOptions: [
                 { v: 'part', label: 'Part' },
                 { v: 'assembly', label: 'Assembly' },
+                { v: 'fitting', label: 'Fitting (bought-in)' },
                 { v: 'fastener', label: 'Fastener' },
             ],
             form: {
                 name: '',
                 type: 'part',
-                quantity: 1,
+                quantity: 1,     // global BoQ qty — READ-ONLY
                 material_id: '',
                 length: '',
+                length_secondary: '',   // D1 green — extra length on top of cut length
                 width: '',
                 thickness: '',
                 buttWeldQty: '',
@@ -51,7 +67,11 @@ var comp = {
                     coating4: '',
                     transportPerTon: '',
                 },
-                hours: {},
+                process_note: '',
+                process_ops: [],
+                // link update payload
+                link_id: null,
+                link_qty: null,
             },
         };
     },
@@ -59,20 +79,33 @@ var comp = {
         isAssembly() { return this.form.type === 'assembly'; },
         hasMaterial() { return this.findComponent(this.entity, 'material') != null; },
         hasProcess() { return this.findComponent(this.entity, 'process') != null; },
+        // Human-readable process statement from the ops list, e.g.
+        // "BM 0.10h — fit-up the flange to the pipe · W 0.15h — fillet weld".
+        processStatement() {
+            return this.process_ops
+                .filter(function (op) { return (parseFloat(op.hours) || 0) > 0; })
+                .map(function (op) {
+                    var abbr = (op.category || '')[0] ? op.category[0].toUpperCase() : '';
+                    var hrs = parseFloat(op.hours).toFixed(2) + 'h';
+                    var sum = (op.summary || '').trim();
+                    return (abbr + ' ' + hrs + (sum ? ' — ' + sum : '')).trim();
+                })
+                .join(' · ');
+        },
         // Material section: never for assemblies (containers roll up from
         // children); always for items that already carry a material component
-        // (material-only items); else for part/fastener so one can be added.
+        // (material-only items); else for part/fastener/fitting so one can be
+        // added (fittings are bought-in pipe hardware — a flange/elbow/tee).
         showMaterial() {
             if (this.isAssembly) return false;
             if (this.hasMaterial) return true;
-            return this.form.type === 'part' || this.form.type === 'fastener';
+            return this.form.type === 'part' || this.form.type === 'fastener' || this.form.type === 'fitting';
         },
-        // Process section: same rules — process-only items keep it visible
-        // even though their material section is blank.
+        // Process section: ALWAYS available — parts, fittings AND assemblies
+        // (D3: a spool assembly carries its own welding process comps while
+        // its parts/fittings roll up beneath it).
         showProcess() {
-            if (this.isAssembly) return false;
-            if (this.hasProcess) return true;
-            return this.form.type === 'part' || this.form.type === 'fastener';
+            return true;
         },
         // Derived mass: the part's mass comes from its MATERIAL + dimensions
         // (same rules as cost.php calcMass), NOT entered by hand.
@@ -88,6 +121,7 @@ var comp = {
             var prof = String(m.profile || '').toLowerCase();
             var cat = String(m.library_category || '').toLowerCase();
             var len = parseFloat(f.length) || 0;
+            var lenTotal = len + (parseFloat(f.length_secondary) || 0); // D1 green included
             var wid = parseFloat(f.width) || 0;
             var thk = parseFloat(f.thickness) || parseFloat(m.thickness) || 0;
             var dens = parseFloat(m.density) || 0;
@@ -102,15 +136,15 @@ var comp = {
                 unit = 'kg/item';
             } else if (prof === 'pipe' || prof === 'tube') {
                 var mpm = parseFloat(m.mass_per_meter) || 0;
-                kg = mpm * (len / 1000);
+                kg = mpm * (lenTotal / 1000);
                 unit = 'kg (pipe run)';
             } else {
                 var mpm2 = parseFloat(m.mass_per_meter) || 0;
-                if (mpm2 > 0 && len > 0) {
-                    kg = mpm2 * (len / 1000);
+                if (mpm2 > 0 && lenTotal > 0) {
+                    kg = mpm2 * (lenTotal / 1000);
                     unit = 'kg (profile length)';
-                } else if (len > 0 && wid > 0 && thk > 0 && dens > 0) {
-                    kg = len * wid * thk / 1e9 * dens;
+                } else if (lenTotal > 0 && wid > 0 && thk > 0 && dens > 0) {
+                    kg = lenTotal * wid * thk / 1e9 * dens;
                     unit = 'kg (L×W×T)';
                 } else if (d.massKg != null) {
                     kg = parseFloat(d.massKg);
@@ -137,6 +171,7 @@ var comp = {
         this.form.material_id = matData.materialLibraryId || '';
         // Keep 0 (not just truthy) — 0-length dims are valid input
         this.form.length = matData.length != null ? matData.length : '';
+        this.form.length_secondary = matData.length_secondary != null ? matData.length_secondary : '';
         this.form.width = matData.width != null ? matData.width : '';
         this.form.thickness = matData.thickness != null ? matData.thickness : '';
         this.form.buttWeldQty = matData.buttWeldQty != null ? matData.buttWeldQty : '';
@@ -162,6 +197,26 @@ var comp = {
         this.trades.forEach(function (t) {
             self.form.hours[t] = procData[t] != null ? parseFloat(procData[t]) : '';
         });
+
+        // Process note + buildable ops list (new format). If the component still
+        // uses the named-field map ({trade: hrs}), seed ops from it so the list
+        // is populated; if it already has ops, load them as-is.
+        this.form.process_note = procData.note || '';
+        var ops = (procData.ops && Array.isArray(procData.ops)) ? procData.ops : [];
+        if (!ops.length) {
+            ops = [];
+            this.trades.forEach(function (t) {
+                var hrs = parseFloat(procData[t]);
+                if (hrs > 0) ops.push({ category: t, hours: hrs, summary: '' });
+            });
+        }
+        this.process_ops = ops;
+        this.form.process_ops = ops;
+
+        // Link context: the single parent this row is linked to + qty in it.
+        this.linkQty = this.parent_qty != null ? parseFloat(this.parent_qty) : 1;
+        this.form.link_id = this.link_id;
+        this.form.link_qty = this.linkQty;
 
         // Resolve the picked material's kind for field visibility
         this.loadMaterials();
@@ -225,11 +280,35 @@ var comp = {
                 this.kind = 'material';
             }
         },
+        // ── Link tab ───────────────────────────────────────
+        onTab(tab) {
+            this.activeTab = tab;
+        },
+        // Mirror the editable link qty into the submit payload.
+        setLinkQty(v) {
+            this.linkQty = parseFloat(v) || 0;
+            this.form.link_qty = this.linkQty;
+        },
+        // ── Process ops list ───────────────────────────────
+        addOp() {
+            this.process_ops.push({ category: this.form.type === 'assembly' ? '' : 'welding', hours: '', summary: '' });
+        },
+        removeOp(i) {
+            this.process_ops.splice(i, 1);
+        },
+        onOpCategory(i, val) {
+            this.$set(this.process_ops[i], 'category', val);
+        },
         submit() {
             if (!this.form.name) {
                 TOAST.show('Item name is required', 'error');
                 return;
             }
+            // Finalize ops + process note into the payload.
+            this.form.process_ops = this.process_ops
+                .filter(function (op) { return op.hours != null && op.hours !== '' && parseFloat(op.hours) > 0; })
+                .map(function (op) { return { category: op.category || '', hours: parseFloat(op.hours) || 0, summary: op.summary || '' }; });
+            this.form.link_qty = this.linkQty;
             this.$emit('submit', this.form);
         },
         cancel() {

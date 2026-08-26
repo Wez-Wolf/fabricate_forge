@@ -16,7 +16,7 @@ include_once(__DIR__ . "/_base.php");
 class entities extends Base
 {
     /** Entity types (mirrors EntitySchema.allowedValues in the original app). */
-    const TYPES = ['part', 'assembly', 'fastener', 'quote'];
+    const TYPES = ['part', 'assembly', 'fastener', 'fitting', 'quote'];
 
     /**
      * Ensure the ECS core tables exist.
@@ -36,7 +36,9 @@ class entities extends Base
         $quoteId = \getVal($input, 'quote_id');
         $search = \getVal($input, 'search');
         $limit = (int)\getVal($input, 'limit', 50);
-        $limit = min(max($limit, 1), 200);
+        // Raised ceiling: quote shells load ALL member rows (the tree walks
+        // every node; a 200 cap silently zero-costs anything beyond it).
+        $limit = min(max($limit, 1), 2000);
 
         $where = 'user_id_owner = $1 AND is_active = TRUE';
         $params = [$this->effOwnerId()];
@@ -74,7 +76,59 @@ class entities extends Base
         foreach ($rows as &$row) {
             $row['component_count'] = $this->countComponents($row['id']);
         }
+        unset($row);
+        $this->attachParentInfo($rows, $quoteId);
         return $rows;
+    }
+
+    /**
+     * Attach each entity's containment parent WITHIN this quote (from the
+     * contains links) so flat lists can render "belongs to" + tree hybrids:
+     *   parent_id, parent_name, parent_qty, top_level (no parent in this quote)
+     */
+    private function attachParentInfo(&$rows, $quoteId)
+    {
+        if (!$rows || !$quoteId) return;
+        $ids = array_column($rows, 'id');
+        $linkRes = $this->pgCrud->read([
+            'table' => 'link',
+            'where' => 'type = $1 AND user_id_owner = $2 AND to_id = ANY($3::uuid[])',
+            'params' => ['contains', $this->effOwnerId(), '{' . implode(',', $ids) . '}'],
+        ]);
+        $parentIds = [];
+        foreach (($linkRes['data'] ?? []) as $l) {
+            $parentIds[$l['to_id']] = [
+                'id' => $l['from_id'],
+                'qty' => (float)($l['quantity'] ?? 1),
+                'link_id' => $l['id'],
+            ];
+        }
+        if (!$parentIds) {
+            foreach ($rows as &$r) $r['top_level'] = true;
+            return;
+        }
+        // Resolve parent names (parents may be outside the list — e.g. the quote root)
+        $pIds = array_column($parentIds, 'id');
+        $pRes = $this->pgCrud->read([
+            'table' => 'entity',
+            'fields' => ['id', 'name', 'type'],
+            'where' => 'id = ANY($1::uuid[])',
+            'params' => ['{' . implode(',', $pIds) . '}'],
+        ]);
+        $names = [];
+        foreach (($pRes['data'] ?? []) as $p) $names[$p['id']] = $p['name'];
+        foreach ($rows as &$r) {
+            $p = $parentIds[$r['id']] ?? null;
+            if ($p && isset($names[$p['id']])) {
+                $r['parent_id'] = $p['id'];
+                $r['parent_name'] = $names[$p['id']];
+                $r['parent_qty'] = $p['qty'];
+                $r['link_id'] = $p['link_id'];   // contains-link id → update its quantity
+                $r['top_level'] = false;
+            } else {
+                $r['top_level'] = true;
+            }
+        }
     }
 
     /**
@@ -160,14 +214,64 @@ class entities extends Base
                 'name' => $name,
                 'description' => \getVal($input, 'description', ''),
                 'quote_id' => \getVal($input, 'quote_id'),
-                'quantity' => \getVal($input, 'quantity', 1),
+                // D5: entities are SINGULAR — incoming quantity is ignored;
+                // quantity belongs on the contains-link.
+                'quantity' => 1,
                 'data' => $data,
                 'user_id_owner' => $this->effOwnerId(),
             ],
         ]);
 
         if (!empty($res['error'])) return $res;
+
+        // G8 / structural-truth rule: membership is a contains-LINK from the
+        // quote root, not just the quote_id column. The edge carries the
+        // quantity (D5 — entity itself is singular).
+        // Callers that attach the entity elsewhere (e.g. import decomposition
+        // putting parts under an assembly) pass root_link => false.
+        $quoteId = \getVal($input, 'quote_id');
+        if ($quoteId && !\getVal($input, 'root_link', true)) {
+            // skip — caller manages structure itself
+        } elseif ($quoteId) {
+            $this->ensureQuoteRootLink($quoteId, $res['data']['id'], (float)\getVal($input, 'link_quantity', 1));
+        }
+
         return $this->getEntity($res['data']['id'] ?? null);
+    }
+
+    /**
+     * Ensure exactly one contains-link quote_root → entity (qty 1 default).
+     * Idempotent — safe to call on every create.
+     */
+    private function ensureQuoteRootLink($quoteId, $entityId, $qty = 1)
+    {
+        if (!$quoteId || !$entityId) return;
+        $existing = $this->pgCrud->read([
+            'table' => 'link',
+            'where' => 'from_id = $1 AND to_id = $2 AND type = $3 AND user_id_owner = $4',
+            'params' => [$quoteId, $entityId, 'contains', $this->effOwnerId()],
+            'limit' => 1,
+        ]);
+        if (!empty($existing['data'])) {
+            // Link exists but qty may differ — keep the caller's truth.
+            $linkId = $existing['data'][0]['id'];
+            if ((float)$existing['data'][0]['quantity'] !== (float)$qty) {
+                $this->pgCrud->save(['table' => 'link', 'data' => [
+                    'id' => $linkId, 'quantity' => $qty, 'user_id_owner' => $this->effOwnerId(),
+                ]]);
+            }
+            return;
+        }
+        $this->pgCrud->save([
+            'table' => 'link',
+            'data' => [
+                'from_id' => $quoteId,
+                'to_id' => $entityId,
+                'type' => 'contains',
+                'quantity' => $qty,
+                'user_id_owner' => $this->effOwnerId(),
+            ],
+        ]);
     }
 
     /**
@@ -223,6 +327,9 @@ class entities extends Base
             " WHERE id = \${$idx} AND user_id_owner = \$" . ($idx + 1),
             $params
         );
+
+        // Watcher: entity-level changes (quantity, margin, type) affect cost
+        $this->recalculateUpward($id);
 
         return $this->getEntity($id);
     }

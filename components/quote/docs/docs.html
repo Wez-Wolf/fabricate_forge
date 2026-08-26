@@ -1,0 +1,84 @@
+<div class="C_docs">
+    <div class="C_section_label">Client documents (for this quote)</div>
+
+    <!-- Document list -->
+    <div class="C_docs_list" v-if="documents.length">
+        <div class="C_doc_row" v-for="doc in documents" :key="doc.file_id"
+             :class="{active: selected && selected.file_id === doc.file_id}">
+            <span class="C_doc_icon">{{ fileIcon(doc.mime_type) }}</span>
+            <a :href="doc.serve_url" target="_blank" class="C_doc_name" :title="doc.filename">{{ doc.filename }}</a>
+            <span class="C_doc_size">{{ formatSize(doc.size) }}</span>
+            <button class="C_doc_open_btn" @click="openDoc(doc)">Open as spreadsheet</button>
+            <span class="C_doc_del" @click="deleteDoc(doc)" title="Delete">✕</span>
+        </div>
+    </div>
+    <div class="C_docs_empty" v-else>No documents yet — upload one below.</div>
+
+    <!-- Upload -->
+    <div class="C_docs_upload">
+        <input type="file" id="C_docs_file" class="C_docs_file" accept=".pdf,.xlsx,.xlsm,.csv,.step,.stp,.iges,.igs,.dwg,.dxf" @change="onFileChange" />
+        <label for="C_docs_file" class="C_docs_file_btn">{{ file ? file.name : 'Choose file (PDF / Excel / CSV / CAD)…' }}</label>
+        <forge-button :label="uploading ? 'Uploading…' : 'Upload'" :disabled="!file || uploading" @click="upload" />
+    </div>
+
+    <!-- Cell viewer + mapping -->
+    <div class="C_docs_loading" v-if="loadingCells">Reading spreadsheet… (large files take a moment)</div>
+    <div class="C_docs_picker" v-if="cells">
+        <div class="C_docs_picker_head">
+            <span class="C_doc_name">{{ selected.filename }}</span>
+            <forge-option v-model="activeSheet" :options="sheetOptions" place_holder="Sheet…" class="C_docs_sheet" @onSelect="loadCells" />
+            <label class="C_docs_headerrow">Header row
+                <input type="number" v-model.number="headerRow" min="1" max="50" @change="rebuildPreview" />
+            </label>
+        </div>
+
+        <!-- Column → field mapping -->
+        <div class="C_docs_map">
+            <div class="C_docs_map_title">
+                Map columns → item fields
+                <button class="C_pi_btn" :disabled="askingPi" @click="askPi">{{ askingPi ? 'Asking pi…' : '✦ Let pi map it' }}</button>
+            </div>
+            <div class="C_automap_note" v-if="autoMapNote">{{ autoMapNote }}</div>
+            <div class="C_map_row" v-for="f in fieldOrder" :key="f">
+                <span class="C_map_field">{{ fieldLabel(f) }}<small class="C_map_lands">{{ fieldLands(f) }}</small></span>
+                <forge-option v-model="mapping[f]" :options="colOptions" place_holder="— none —" class="C_map_col" />
+            </div>
+            <div class="C_docs_filter">
+                <label><input type="checkbox" v-model="useFilter" /> Filter rows where</label>
+                <forge-option v-model="filterCol" :options="colOptions" :search="true" place_holder="— column —" class="C_map_col" />
+                <span>=</span>
+                <input type="text" v-model="filterVal" :disabled="!useFilter" placeholder="value (e.g. Straight Pipe)" class="C_filter_val" />
+            </div>
+            <div class="C_docs_build">
+                <label class="C_match_toggle"><input type="checkbox" v-model="matchMaterials" /> Match materials on build</label>
+                <forge-option v-model="itemType" :options="typeOptions" place_holder="Type…" class="C_map_col C_type_pick" />
+                <forge-button
+                <forge-button :label="building ? 'Building…' : 'Build items into quote'" :disabled="building || !hasKeyField" @click="build" />
+            </div>
+            <div class="C_docs_result" v-if="result">Created {{ result.created }} · skipped {{ result.skipped }} · materials matched {{ result.materials_matched }}<span v-if="result.materials_unmatched"> · {{ result.materials_unmatched }} need manual assign</span><span v-if="result.errors.length"> · {{ result.errors.length }} errors</span></div>
+        </div>
+
+        <!-- Preview: header + first N data rows (read-only) -->
+        <div class="C_docs_grid_wrap">
+            <table class="C_docs_grid">
+                <thead>
+                    <tr>
+                        <th class="C_rownum">#</th>
+                        <th v-for="col in previewCols" :key="col"
+                            :class="{mapped: isMapped(col)}">{{ col }}<br><small>{{ headerLabels[col] }}</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="row in previewRows" :key="row.r">
+                        <td class="C_rownum">{{ row.r }}</td>
+                        <td v-for="col in previewCols" :key="col" :class="{mapped: isMapped(col)}">{{ row.cells[col] }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="C_docs_more" v-if="dataRowCount > previewRows.length">+ {{ dataRowCount - previewRows.length }} more data rows (all used on build)</div>
+        </div>
+
+        <!-- Click a cell to inspect coord -->
+        <div class="C_docs_cellinfo" v-if="inspect">Selected cell <b>{{ inspect.coord }}</b>: {{ inspect.v }}</div>
+    </div>
+</div>

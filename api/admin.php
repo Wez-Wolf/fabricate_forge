@@ -10,22 +10,13 @@ namespace api;
 
 include_once(__DIR__ . "/_base.php");
 include_once(__DIR__ . "/rates.php");
+include_once(__DIR__ . "/materials.php");
 
 class admin extends Base
 {
     protected function buildTable()
     {
         $this->ensureEcsTables();
-        $this->pgCrud->execute(<<<'SQL'
-CREATE TABLE IF NOT EXISTS company_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id_owner UUID NOT NULL UNIQUE,
-    data JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-)
-SQL);
-        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_cs_owner ON company_settings(user_id_owner)');
     }
 
     /**
@@ -121,6 +112,21 @@ SQL);
              WHERE id = \$1",
             [$userId, $userRoleInt, json_encode($role)]
         );
+
+        // Seed the shared material library ONCE when a new admin is created
+        // (requirement: seeds fire only on a new admin account, never on load
+        // and never re-fire). If the library is already populated this is a
+        // no-op — the newly-created admin does NOT re-own or duplicate it.
+        if ($role === 'admin') {
+            try {
+                $mat = new \api\materials();
+                $mat->ensureSharedLibrary($userId);
+            } catch (\Throwable $t) {
+                // Seeding must never break admin role assignment.
+                error_log('ensureSharedLibrary failed: ' . $t->getMessage());
+            }
+        }
+
         return ['success' => true, 'user_id' => $userId, 'role' => $role];
     }
 

@@ -1,0 +1,67 @@
+<div class="C_rfq">
+    <!-- Saved documents -->
+    <div class="C_rfq_docs" v-if="documents.length">
+        <div class="C_section_label">Saved documents</div>
+        <div class="C_doc_row" v-for="doc in documents" :key="doc.file_id">
+            <span class="C_doc_icon">{{ fileIcon(doc.mime_type) }}</span>
+            <a :href="doc.serve_url" target="_blank" class="C_doc_name" :title="doc.filename">{{ doc.filename }}</a>
+            <span class="C_doc_size">{{ formatSize(doc.size) }}</span>
+            <span class="C_doc_count" v-if="doc.row_count">{{ doc.row_count }} rows</span>
+            <span class="C_doc_replay" @click="viewDocument(doc.file_id)" title="Reload these rows into the review grid">↶ replay</span>
+        </div>
+    </div>
+
+    <!-- Upload → persist + parse -->
+    <div class="C_rfq_upload">
+        <input type="file" id="C_rfq_file" class="C_rfq_file" accept=".pdf,.xlsx,.xlsm,.csv,.step,.stp,.iges,.igs,.dwg,.dxf" @change="onFileChange" />
+        <label for="C_rfq_file" class="C_rfq_file_btn">{{ file ? file.name : 'Choose client BoQ / spec file…' }}</label>
+        <forge-button :label="loading ? 'Parsing…' : 'Upload & Parse'" :disabled="!file || loading" @click="upload" />
+    </div>
+
+    <!-- Parse summary -->
+    <div v-if="summary" class="C_rfq_summary">
+        <span class="C_flag_ok">✓ {{ summary.ok }} ok</span>
+        <span class="C_flag_unclear">⚠ {{ summary.unclear }} unclear</span>
+        <span class="C_flag_error">✗ {{ summary.error }} error</span>
+        <span class="C_flag_skip" v-if="summary.skip">⏭ {{ summary.skip }} skipped</span>
+        <span class="C_flag_dup" v-if="summary.duplicate">🔁 {{ summary.duplicate }} duplicate</span>
+    </div>
+
+    <!-- Review grid -->
+    <div v-if="rows.length" class="C_rfq_grid_wrap">
+        <table class="C_rfq_grid">
+            <thead>
+                <tr>
+                    <th>#</th><th>Section</th><th>Size</th><th>Unit</th><th>Qty</th><th>Type</th><th>Spec</th><th>Description</th><th>Issues</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(r, i) in rows" :key="i" :class="{ 'C_row_err': hasLevel(r, 'error'), 'C_row_unclear': hasLevel(r, 'unclear'), 'C_row_skip': r.type === 'skip' }">
+                    <td class="num">{{ r.row }}</td>
+                    <td v-if="r.type !== 'skip'"><input class="C_rfq_in" v-model="r.section" @input="markCellEdit" /></td>
+                    <td v-else></td>
+                    <td v-if="r.type !== 'skip'"><input class="C_rfq_in C_rfq_in_sm" v-model="r.size" @input="markCellEdit" /></td>
+                    <td v-else></td>
+                    <td v-if="r.type !== 'skip'"><select class="C_rfq_in C_rfq_in_sm" v-model="r.unit" @change="markCellEdit"><option>m</option><option>ea</option><option>kg</option></select></td>
+                    <td v-else></td>
+                    <td v-if="r.type !== 'skip'"><input class="C_rfq_in C_rfq_in_sm num" v-model.number="r.qty" @input="markCellEdit" /></td>
+                    <td v-else></td>
+                    <td><span class="C_rfq_type">{{ r.type }}</span></td>
+                    <td class="C_rfq_spec">{{ specText(r.spec) }}</td>
+                    <td class="C_rfq_desc" :title="r.desc">{{ r.desc }}</td>
+                    <td>
+                        <span v-for="f in r.flags" :key="f.code" class="C_flag" :class="'C_flag_' + f.level" :title="f.msg">{{ f.code }}</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="C_rfq_actions">
+            <forge-button :label="'Import ' + cleanCount() + ' valid rows'" :disabled="importing" @click="importRows" />
+            <span class="C_rfq_hint">Rows with errors or skipped rows are not imported — fix them above first.</span>
+        </div>
+    </div>
+
+    <div v-if="!rows.length && !loading" class="C_rfq_empty">
+        Upload the client's tender BoQ (xlsx/csv) — it is parsed into reviewable rows immediately (the file itself is not kept). Fix the unclear bits, then import into the quote.
+    </div>
+</div>

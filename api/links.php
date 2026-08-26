@@ -96,12 +96,18 @@ class links extends Base
         ]);
 
         if (!empty($res['error'])) return $res;
-        return $this->pgCrud->read([
+        $link = $this->pgCrud->read([
             'table' => 'link',
             'where' => 'id = $1 AND user_id_owner = $2',
             'params' => [$res['data']['id'], $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
+
+        // Watcher: contains links change rollup structure → recalc parent upward
+        if ($type === 'contains' && $fromId) {
+            $this->recalculateUpward($fromId);
+        }
+        return $link;
     }
 
     /**
@@ -137,12 +143,18 @@ class links extends Base
             $params
         );
 
-        return $this->pgCrud->read([
+        $link = $this->pgCrud->read([
             'table' => 'link',
             'where' => 'id = $1 AND user_id_owner = $2',
             'params' => [$id, $this->effOwnerId()],
             'limit' => 1,
         ])['data'][0] ?? null;
+
+        // Watcher: contains link quantity change → recalc parent upward
+        if (($link['type'] ?? null) === 'contains' && ($link['from_id'] ?? null)) {
+            $this->recalculateUpward($link['from_id']);
+        }
+        return $link;
     }
 
     /**
@@ -153,10 +165,23 @@ class links extends Base
         $id = \getVal($input, 'id') ?: \getVal($input, 'link_id');
         if (!$id) return ['error' => 'Link id is required.'];
 
+        // Capture link before delete (for watcher)
+        $before = $this->pgCrud->read([
+            'table' => 'link',
+            'where' => 'id = $1 AND user_id_owner = $2',
+            'params' => [$id, $this->effOwnerId()],
+            'limit' => 1,
+        ])['data'][0] ?? null;
+
         $this->pgCrud->execute(
             "DELETE FROM link WHERE id = \$1 AND user_id_owner = \$2",
             [$id, $this->effOwnerId()]
         );
+
+        // Watcher: contains link removal → recalc parent upward
+        if (($before['type'] ?? null) === 'contains' && ($before['from_id'] ?? null)) {
+            $this->recalculateUpward($before['from_id']);
+        }
         return ['success' => true, 'id' => $id];
     }
 
@@ -164,9 +189,25 @@ class links extends Base
      * BOM tree traversal — recursive contains-chain from a root entity.
      * Returns a nested tree: { id, name, type, quantity, children: [...] }.
      * depth_limit guards against runaway recursion (default 10, max 20).
+     * @deprecated Use handle_tree_batched instead (2 queries vs N+1).
      */
     public function handle_tree($input = [])
     {
+        // Backward-compat shim — delegates to the batched implementation.
+        return $this->handle_tree_batched($input);
+    }
+
+    /**
+     * BOM tree traversal — batched (2 queries total). Loads the whole quote's
+     * entities (by quote_id) + all its 'contains' links in one round each,
+     * then assembles the nested tree in PHP. ECS-consistent: structure comes
+     * from links, and no entity is special-cased by type.
+     *
+     * Input: { entity_id, depth? }. Same shape as the legacy tree endpoint,
+     * plus each node carries link_id and link_quantity so per-parent quantities
+     * surface.
+     */
+    public function handle_tree_batched($input = []) {
         $rootId = \getVal($input, 'entity_id') ?: \getVal($input, 'root_id');
         if (!$rootId) return ['error' => 'entity_id is required.'];
 
@@ -176,15 +217,140 @@ class links extends Base
         $root = $this->getEntity($rootId);
         if (!$root) return ['error' => 'Entity not found.', 'error_code' => 404];
 
-        $tree = [
+        $owner = $this->effOwnerId();
+        $quoteId = $root['quote_id'] ?? $rootId;
+
+        // ── Scope: quote-based (normal) or orphan/standalone (no quote_id) ──
+        // Quoted entities: one query gets the whole quote's entities.
+        // Orphan entities (quote_id IS NULL): iterative BFS so we only ever
+        // fetch the frontier's children — avoids the 1900-uuid array that
+        // breaks pg_query_params with "Unexpected } character".
+        $byId = [$root['id'] => $root];
+        if ($quoteId) {
+            $entRes = $this->pgCrud->read([
+                'table' => 'entity',
+                'where' => 'quote_id = $1 AND user_id_owner = $2 AND is_active = TRUE',
+                'params' => [$quoteId, $owner],
+            ]);
+            foreach (($entRes['data'] ?? []) as $e) $byId[$e['id']] = $e;
+        }
+
+        // child→parent adjacency, built incrementally.
+        $parents = [];
+        $frontier = [$rootId];
+        $bfsVisited = [$rootId => true];
+
+        for ($depth = 0; $depth < $maxDepth && $frontier; $depth++) {
+            // Batch-fetch links FROM this frontier in one query.
+            // PostgreSQL array literals need double-quoted elements when
+            // values contain hyphens (UUIDs).
+            $uuidParam = '{' . implode(',', array_map(fn($id) => '"' . $id . '"', $frontier)) . '}';
+            $linkRes = $this->pgCrud->read([
+                'table' => 'link',
+                'where' => 'from_id = ANY($1::uuid[]) AND type = $2 AND user_id_owner = $3',
+                'params' => [$uuidParam, 'contains', $owner],
+            ]);
+            $links = $linkRes['data'] ?? [];
+
+            // Collect child IDs that we haven't resolved yet.
+            $nextFrontier = [];
+            foreach ($links as $l) {
+                $cId = $l['to_id'];
+                if (isset($bfsVisited[$cId])) continue;
+                $bfsVisited[$cId] = true;
+                $parents[$l['from_id']][] = [$cId, (float)($l['quantity'] ?? 1), $l['id']];
+                $nextFrontier[] = $cId;
+            }
+            if (!$nextFrontier) break;
+
+            // Fetch child entities in one query (only the frontier size).
+            $childUuidParam = '{' . implode(',', array_map(fn($id) => '"' . $id . '"', $nextFrontier)) . '}';
+            $entRes = $this->pgCrud->read([
+                'table' => 'entity',
+                'where' => 'id = ANY($1::uuid[]) AND user_id_owner = $2 AND is_active = TRUE',
+                'params' => [$childUuidParam, $owner],
+            ]);
+            foreach (($entRes['data'] ?? []) as $e) $byId[$e['id']] = $e;
+
+            $frontier = $nextFrontier;
+        }
+
+        // In-memory DFS build from the fully-populated byId. Cycle-guarded.
+        $visited = [];
+        $build = function ($id, $depth) use (&$build, &$visited, $byId, $parents, $maxDepth) {
+            if ($depth >= $maxDepth || isset($visited[$id])) return [];
+            $visited[$id] = true;
+            $out = [];
+            foreach (($parents[$id] ?? []) as [$cId, $linkQty, $linkId]) {
+                $e = $byId[$cId] ?? null;
+                if (!$e || isset($visited[$e['id']])) continue;
+                $out[] = [
+                    'id' => $e['id'],
+                    'link_id' => $linkId,
+                    'link_quantity' => $linkQty,
+                    'name' => $e['name'],
+                    'description' => $e['description'] ?? '',
+                    'type' => $e['type'],
+                    'quantity' => $e['quantity'] ?? 1,
+                    'children' => $build($e['id'], $depth + 1),
+                ];
+            }
+            return $out;
+        };
+
+        return [
             'id' => $root['id'],
             'name' => $root['name'],
             'type' => $root['type'],
             'quantity' => $root['quantity'] ?? 1,
+            'children' => $build($rootId, 0),
         ];
-        $tree['children'] = $this->buildTree($rootId, 0, $maxDepth, []);
+    }
 
-        return $tree;
+    /**
+     * Frontier children of one entity (no recursion) — the reusable primitive
+     * for per-parent editing (Entities tab). Returns each child WITH its
+     * link_id and link_quantity (the per-parent structural qty), so a shared
+     * entity's different quantities across assemblies are visible/editable.
+     * Input: { entity_id }. Output: { children: [...] }.
+     */
+    public function handle_children_of($input = []) {
+        $id = \getVal($input, 'entity_id');
+        if (!$id) return ['error' => 'entity_id is required.'];
+        $owner = $this->effOwnerId();
+
+        $linkRes = $this->pgCrud->read([
+            'table' => 'link',
+            'where' => 'from_id = $1 AND type = $2 AND user_id_owner = $3',
+            'params' => [$id, 'contains', $owner],
+        ]);
+        $links = $linkRes['data'] ?? [];
+        if (!$links) return ['children' => []];
+
+        // Batch the child entities in one query.
+        $cids = array_column($links, 'to_id');
+        $entRes = $this->pgCrud->read([
+            'table' => 'entity',
+            'where' => 'id = ANY($1::uuid[]) AND user_id_owner = $2 AND is_active = TRUE',
+            'params' => ['{' . implode(',', $cids) . '}', $owner],
+        ]);
+        $byId = [];
+        foreach (($entRes['data'] ?? []) as $e) $byId[$e['id']] = $e;
+
+        $children = [];
+        foreach ($links as $l) {
+            $e = $byId[$l['to_id']] ?? null;
+            if (!$e) continue;
+            $children[] = [
+                'id' => $e['id'],
+                'link_id' => $l['id'],
+                'link_quantity' => (float)($l['quantity'] ?? 1),
+                'name' => $e['name'],
+                'type' => $e['type'],
+                'quantity' => $e['quantity'] ?? 1,
+            ];
+        }
+        return ['children' => $children];
     }
 
     /**
@@ -205,30 +371,10 @@ class links extends Base
 
     // ── Internal helpers ────────────────────────────────
 
-    private function buildTree($entityId, $depth, $maxDepth, $visited)
-    {
-        if ($depth >= $maxDepth || in_array($entityId, $visited)) {
-            return [];
-        }
-        $visited[] = $entityId;
-
-        $links = $this->getLinks($entityId, 'contains');
-        $children = [];
-        foreach ($links['out'] as $link) {
-            $child = $this->getEntity($link['to_id']);
-            if (!$child) continue;
-            $children[] = [
-                'id' => $child['id'],
-                'link_id' => $link['id'],
-                'name' => $child['name'],
-                'type' => $child['type'],
-                'quantity' => $link['quantity'] ?? 1,
-                'children' => $this->buildTree($link['to_id'], $depth + 1, $maxDepth, $visited),
-            ];
-        }
-        return $children;
-    }
-
+    /**
+     * Detect cycles in the contains graph (guards tree traversal + BOM edits).
+     * Returns the cycle path if found, or null if no cycle.
+     */
     private function findCycle($entityId, $visited, $path)
     {
         if (in_array($entityId, $visited)) {

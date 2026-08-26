@@ -11,6 +11,9 @@
                     <div class="C_theme" @click="toggleDark" title="Toggle theme">
                         <forge-svg :s_path="isDark ? 'sun' : 'moon'" />
                     </div>
+                    <div class="C_settings" @click="openSettingsPanel" title="Settings & About">
+                        <forge-svg s_path="settings" />
+                    </div>
                     <span v-if="userName" class="C_user_name">{{ userName }}</span>
                     <span v-if="userRole" class="C_user_role">{{ userRole }}</span>
                     <div class="C_logout" @click="onLogout" title="Logout">

@@ -149,6 +149,10 @@ body,html{margin:0;padding:0;overflow:hidden;
     --forge-list-row-border: 1px solid var(--border);
     --forge-list-cell-padding: 0.625rem 0.75rem;
 
+    /* forge-tree: hover bg on the node holder (defaults to ink/white in legacy
+       forge — theme it to the app's hover tint like forge-list) */
+    --forge-tree-hover-bg: var(--hover-bg);
+
     /* generic color tokens (menu, search, popup, list) */
     --color_accent: var(--accent);
     --color-text: var(--text);

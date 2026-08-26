@@ -1,5 +1,5 @@
 /**
- * components/about — system overview (port of the original About.vue).
+ * components/about — system overview.
  */
 var comp = {
     data() {

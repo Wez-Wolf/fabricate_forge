@@ -1,0 +1,113 @@
+# Progress — singular entity model (D5) + dedup
+
+## In flight (session 2026-08-25)
+- **Option C import flow BUILT + verified (2026-08-25)** — upload → auto-map → confirm → build w/ material match:
+  1. Heuristic auto-map in docs.js guessMapping() (fuzzy headers + value-shape sniffing), runs on every sheet open, note shown.
+  2. "✦ Let pi map it" button → rfq.php handle_smart_map → pi-bridge (NEW systemd svc: /usr/local/bin/pi-bridge.py, 127.0.0.1:8787,
+     runs `pi -p` as root, root creds stay private; www-data CANNOT run pi directly — no /var/www/.pi + no provider auth). Cached per file+sheet.
+     Verified live: pi proposes mapping in ~31s cold (Q col unlabeled so size unmapped by pi — human confirms/fixes = the design).
+  3. Import-time material auto-match: build_from_map match_materials flag (default on) → materials.php scoreSpec() structured matcher
+     (DN/NB/DN-space patterns incl 'DN <n>' fix, profile-based category, wall tokens, CS/HDPE grade hint; ≥0.7 to auto-assign) →
+     material comp inserted DIRECTLY via pgCrud (NOT components.handle_create — avoids 200+ upward recalcs; single batch recalc at end).
+     Meter-uom pipes: comp length = BoQ qty m→mm. Verified: STRAIGHT PIPE sheet → 201/203 matched, 6.8s, quote total R12.7M real money.
+  UI: mapping rows show "→ where it lands" captions; Match-materials toggle; result shows matched/unmatched counts.
+- **Material assignment UX remainder** — unmatched items need the Materials-tab Assign sub-view + bulk handle_assign (matcher exists;
+  scoreSpec reusable). Docs-build auto-match now covers most items already.
+- **Docs cell-viewer perf fix DONE + verified (2026-08-25)** — root causes: ORIGINAL sheet 160k cells froze Vue; every open re-parsed 3MB xlsx (~13s). Fixed:
+  max_rows=400 viewer cap, loading indicator, temp-cache in rfq.php handle_cells (key file_id|sheet|max_rows). Verified live: cold 13.2s → cached 0.05s, identical payload.
+  NOTE: app is NOT at http://localhost (that vhost catch-all-proxies to a dead Meteor :3000) — use https://fabricate.innofuse.xyz (SSL vhost, sites-enabled).
+  API auth: auth_id goes INSIDE `input`, not top-level.
+  Remaining: user visual confirm of Docs tab on quote 9ecd6c0b.
+- **Docs UI polish DONE (2026-08-25)** — selects swapped to forge-option (searchable; colOptions carries '' none-key), loading indicator styled,
+  sheet-picker width fixed (was full-container block), grid readability (5px8px cells, zebra, hover, mapped-col tint via --accent-soft),
+  doc-row hover, build-row separator. Verified via ground-truth static page + agent-browser computed styles + vision (8/10, no broken layout).
+  LESSON: C_docs_x serves as quote-docs_DOCS_x (prefix = whole first segment) — hand-built test pages must use that form.
+  Audit debt: landing.css has 4 pre-existing `margin: 0 auto` violations (lines 23/86/188/276) — fix via flex-centering when landing is next touched.
+
+## Completed ✓
+- **Client→system translation layer DONE + verified (2026-08-25)** — build_from_map translates client columns: size(+size_kind) → spec_dn/spec_kind
+  (NB/DN/OD; no digits ⇒ null); section vocab ONLY refines part⇒fitting (free-text desc excluded); qty → link_quantity (D5). Client sheet headers
+  can LIE (col O "UNIQUE" holds Meter; real size in unlabeled col Q) — cell-level mapping essential.
+- **Docs UI dark-mode + polish DONE (2026-08-25)** — docs.css now uses REAL app tokens (--border/--surface/--surface-2/--text-muted/--accent);
+  the --forge-* fallbacks it had DON'T EXIST in this app's token set (dark borders were broken light-gray). Verified via static ground-truth page
+  with html.dark + computed styles + vision. C_docs_x serves as quote-docs_DOCS_x (prefix = whole first segment).
+- G1–G7 cost gaps; D2 threading; docs restructured; spec → CONTEXT.md D1–D5
+- Dead tree-walker #3 deleted; assemblies carry process comps again (D3 spool case)
+- D5 UI: no entity quantity on any manual add surface
+- **G8 DONE + live-verified** — entities.create & quotes.add_items emit quote-root contains-link (qty 1); batch smoke: 2 links, recalc total 297.44 through links
+- **G9 DONE** — findParentEntity links-first, quote_id only legacy fallback (_base.php)
+- Fixed PHP warning: undefined 'kind' key in cost.php
+
+## In Progress
+- T26-132 **Stage 6 REBUILD BUILT + VERIFIED** (2026-08-23): quote
+  Q-0B0C5A48 `8834df7d-adc3-44ed-b960-4714d87438a1` — 2,638 WBS assemblies
+  (pruned tree from ORIGINAL sheet) + 333 unique-spec entities + 2,386
+  usage links (qty on link). Qty sum 490,652.4 == source exact; single
+  recalc clean. Found+fixed: category sheets carry hidden SUMMARY blocks
+  (264 aggregate rows) — old flat import double-counted them. Cost R0
+  by design until B8 (specs have no material/rate comps yet).
+  Tools: /tmp/stage6_{dryrun_v3,build,resume,dedup}.py,
+  driver_catalog_v3.json. NOTE: links dedup lesson — check existing pairs
+  before bulk INSERT; use links.delete API for removals (no SQL DELETE).
+- **Naming/numbering + table UX (2026-08-24)**: 2,638 WBS assemblies named
+  '<CBS> <section title>'; 333 specs have stable data.catalog_no (CAT-001…)
+  + labelled names; catalog_no exposed in entity_items. forge-table header
+  reworked (shared component): filter selects moved INTO header cells,
+  clearer sort glyphs, right-aligned numerics. Items tab: Catalog default
+  lens w/ No. column; assemblies excluded from list (structure = Tree).
+- **Systems-mediated reads DONE (2026-08-24)**: new ADR in CONTEXT.md.
+  systems.php entity_items now has THREE lenses over the link-table CTE:
+  **entity** (default, 1 row/distinct entity — shell + overview + process),
+  **catalog** (excludes assemblies, adds total_qty + used_in — Items tab
+  default view), **usage** (1 row per placement edge w/ real parent).
+  view.js calls ONLY quotes.get + entity_items(lens=entity); tree.js reads
+  systems.entity_tree. Items tab self-loads via lens param + Show in place
+  toggle; forge-table tree-mode off (hierarchy lives in Tree sub-view).
+  Verified live: overview "2971 items", catalog 333, usage 5024.
+  xlsx + MD IR both persisted in file store (file_id 9ce99761 / 6b5fe58b),
+  3,080 entities imported into quote Q-8BC0EDCA via rfq.import. Cost R0
+  (B8: leaf imports carry no material comps). AI-enrich pass parked (kilo
+  free flaky, B9). Next: decide B8 fix (Option B app change vs post-import
+  enrichment) — USER DECISION.
+
+## Open items
+- G10 edititem Link tab single-parent — multi-parent reuse needs N-link view
+- Imports (boms/rfq) still stamp entity.quantity from BoQ rows → links with qty instead
+- Legacy entities with qty > 1 — migrate onto links? USER DECISION pending
+- Dedup ledger 1–7 unchanged (BOM parse, PDF two ways, self-loads, aliases, watcher-in-_base, deferred pair, add_entity dead code)
+
+## Next Action
+- Test harness (~½ day) unlocks the risky ledger items (5–6) — recommended before G10/watcher refactor
+
+## Cell-based source picker (NEW, 2026-08-24)
+- Gap closed: RFQ import was fixed-schema (parse_boq hard-coded columns); no
+  spreadsheet-cell view or user column→field mapping. Now added:
+- `scripts/xlsx-cells.py` — raw cell grid (A1 coords + guessed header row) from
+  any xlsx sheet (read_only-safe). Verified: TS SUPPLY sheet = 39,865 cells,
+  headerRow 8, full 24-col label map.
+- `api/rfq.php::handle_cells` — {file_id} → reads persisted blob (forge\db\Files),
+  returns {sheets, active, headerRow, headerLabels, cells}. Verified live.
+- `api/rfq.php::handle_build_from_map` — {file_id, sheet, header_row, fields
+  map, optional row_filter, type} → re-extracts cells, maps columns→fields,
+  creates entities + contains links (G8/D5), each carrying boq_* lineage +
+  `cell_refs` (exact source coord per field). Verified: 268 Straight Pipe rows
+  built from TS sheet, each with boq_item_no + cell_refs (e.g. G12/A12).
+- NEW `components/quote/docs/` (docs.html/js/css) — per-quote Client Docs tab:
+  lists uploaded docs (PDF/Excel/CSV/CAD), upload, open spreadsheet → cell grid
+  + column→field mapping + optional row filter + "Build items into quote".
+  Registered in view.js tabs + view.html v-show. Comp resolves cleanly.
+- DRY: reuses file store + entities/links seams, no new DB tables. No destructive
+  SQL. Test quote deleted after validation (quotes.delete soft-delete).
+
+## Quote tab restructure (2026-08-24)
+- Top-level tabs reordered to the quote lifecycle (what→what→made-from→doing→cost):
+  **Docs → Entities → Materials → Process → Cost**. (Was: Overview/Items/Materials/Docs.)
+- Docs = client ingress ("what do they want us to quote on") — now FIRST.
+- Entities = entity table ("what is it"); label renamed Items→Entities.
+- Materials kept ("what we work with / made from") — keep function.
+- Process promoted to top-level tab ("what we do to it"); was a sub-view of Items.
+- Cost = NEW `components/quote/cost/` ("how much does it cost") — reuses shell
+  `totals` + per-entity `costs`; headline total + breakdown cards (material/
+  process/on-costs/margin/grand + mass + trade hours) + on-costs + per-item table.
+- Overview tab DROPPED (identity shows in header; cost summary now in Cost).
+  quote-overview lazy-loader removed. Default tab = docs.

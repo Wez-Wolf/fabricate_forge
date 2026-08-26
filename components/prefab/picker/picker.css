@@ -1,6 +1,7 @@
 /* components/prefabpicker — prefab template picker (POPUP body) */
 
 .C_main {
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;

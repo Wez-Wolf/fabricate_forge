@@ -42,16 +42,6 @@ class user extends Base
     protected function buildTable()
     {
         $this->ensureEcsTables();
-        $this->pgCrud->execute(<<<'SQL'
-CREATE TABLE IF NOT EXISTS user_prefs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL UNIQUE REFERENCES "user"(id) ON DELETE CASCADE,
-    data JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-)
-SQL);
-        $this->pgCrud->execute('CREATE INDEX IF NOT EXISTS idx_up_user ON user_prefs(user_id)');
     }
 
     /**
